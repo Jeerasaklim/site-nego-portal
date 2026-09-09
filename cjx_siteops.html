@@ -1251,43 +1251,51 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand){
      w:(pend.length?{track:"reg",field:"done",value:pend[0].col,lbl:"✅ "+pend[0].n+" เสร็จ"}:null)});}
  var regOver=regT.filter(function(t){return t.st=="red";}).length;
  // ===== ต่ออายุใบอนุญาต — อ่านวันหมดจริงจากชีตใบอนุญาต (src_lic) · "-"/ว่าง = ไม่มีใบนั้น =====
- var LIC_COLS=[
-  {col:7, k:"liquor1", n:"ขายสุรา ประเภท 1 (ค้าส่ง)", lead:90, loc:false},
-  {col:8, k:"liquor2", n:"ขายสุรา ประเภท 2 (ค้าปลีก)", lead:90, loc:false},
-  {col:9, k:"tobacco", n:"ขายยาสูบ ประเภท 2", lead:90, loc:false},
-  {col:10, k:"animal", n:"ค้าซากสัตว์ (ร.10)", lead:60, loc:false},
-  {col:11, k:"feed", n:"ขายอาหารสัตว์", lead:90, loc:false},
-  {col:12, k:"food_store", n:"สะสมอาหาร", lead:45, loc:true},
-  {col:13, k:"food_sell", n:"จำหน่ายอาหาร", lead:45, loc:true},
-  {col:14, k:"haz_pest", n:"กิจการอันตราย (ยาฆ่าแมลง)", lead:45, loc:true},
-  {col:15, k:"haz_gas", n:"กิจการอันตราย (แก๊สกระป๋อง)", lead:45, loc:true}
+ var renewT=[],siteByT={};
+ function _findCol(H,kw){for(var ci=0;ci<H.length;ci++){if((((H[ci]||"")+"")).indexOf(kw)>=0)return ci;}return -1;}
+ function _findHdr(rows,kw){for(var hi=0;hi<Math.min(rows.length,6);hi++){if(rows[hi].join("|").indexOf(kw)>=0)return hi;}return -1;}
+ var LIC_DEF=[
+  {kw:"สุรา ประเภท 1", k:"liquor1", n:"ขายสุรา ประเภท 1 (ค้าส่ง)", lead:90, loc:false},
+  {kw:"สุรา ประเภท 2", k:"liquor2", n:"ขายสุรา ประเภท 2 (ค้าปลีก)", lead:90, loc:false},
+  {kw:"ยาสูบ", k:"tobacco", n:"ขายยาสูบ ประเภท 2", lead:90, loc:false},
+  {kw:"ค้าซากสัตว์", k:"animal", n:"ค้าซากสัตว์ (ร.10)", lead:60, loc:false},
+  {kw:"ขายอาหารสัตว์", k:"feed", n:"ขายอาหารสัตว์", lead:90, loc:false},
+  {kw:"สะสมอาหาร", k:"food_store", n:"สะสมอาหาร", lead:45, loc:true},
+  {kw:"จำหน่ายอาหาร", k:"food_sell", n:"จำหน่ายอาหาร", lead:45, loc:true},
+  {kw:"ยาฆ่าแมลง", k:"haz_pest", n:"กิจการอันตราย (ยาฆ่าแมลง)", lead:45, loc:true},
+  {kw:"แก๊ส", k:"haz_gas", n:"กิจการอันตราย (แก๊สกระป๋อง)", lead:45, loc:true}
  ];
- var renewT=[];
- if(lic&&lic.length>1){for(var li2=1;li2<lic.length;li2++){var lr=lic[li2];var lc=(cc(lr,1)||"").trim();if(!lc)continue;
-   var lnm=cc(lr,2),lpv=cc(lr,5);
-   LIC_COLS.forEach(function(L){
-    var ex=pdate((cc(lr,L.col)||"").trim());
-    if(!ex)return;                                   // ว่าง/"-"/ไม่ใช่วันที่ = ไม่มีใบนี้ที่สาขานี้
-    var dEx=daysBetween(ex,TODAY);
-    var fb=new Date(ex.getTime()-L.lead*86400000);
-    var st0,leftTxt;
-    if(dEx<0){st0="red";leftTxt="🔴 หมดอายุแล้ว "+(-dEx)+" วัน";}
-    else if(dEx<=14){st0="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}
-    else if(dEx<=L.lead){st0="amber";leftTxt="ต้องยื่น · เหลือ "+dEx+" วัน";}
-    else{st0="green";leftTxt="เหลือ "+dEx+" วัน";}
-    var skipped=!!(renew_skip[lc]&&renew_skip[lc][L.k]);
-    var st=skipped?"skip":st0;
-    renewT.push({code:lc,name:lnm,prov:lpv,lic:L.n,k:L.k,loc:L.loc,basis:(L.loc?"🏛️ ตามท้องถิ่น":"วันในใบ"),expiry:iso(ex),fileby:"ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)",left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
-   });
- }}
+ if(lic&&lic.length>1){var lhr=_findHdr(lic,"รหัสสาขา");if(lhr<0)lhr=_findHdr(lic,"Site Code");
+   if(lhr>=0){var LH=lic[lhr];
+     var cSite=_findCol(LH,"Site Code"),cTc=_findCol(LH,"รหัสสาขา"),cCode=(cSite>=0?cSite:cTc),cName=_findCol(LH,"ชื่อสาขา"),cProv=_findCol(LH,"จังหวัด");
+     LIC_DEF.forEach(function(L){L.col=_findCol(LH,L.kw);});
+     for(var li2=lhr+1;li2<lic.length;li2++){var lr=lic[li2];
+       var lc=(cCode>=0?(cc(lr,cCode)||"").trim():""),lTc=(cTc>=0?(cc(lr,cTc)||"").trim():"");if(!lc)lc=lTc;if(!lc)continue;
+       if(lTc)siteByT[lTc]=lc;
+       var lnm=(cName>=0?cc(lr,cName):""),lpv=(cProv>=0?cc(lr,cProv):"");
+       LIC_DEF.forEach(function(L){if(L.col<0)return;
+         var ex=pdate((cc(lr,L.col)||"").trim());if(!ex)return;
+         var dEx=daysBetween(ex,TODAY),fb=new Date(ex.getTime()-L.lead*86400000),st0,leftTxt;
+         if(dEx<0){st0="red";leftTxt="🔴 หมดอายุแล้ว "+(-dEx)+" วัน";}
+         else if(dEx<=14){st0="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}
+         else if(dEx<=L.lead){st0="amber";leftTxt="ต้องยื่น · เหลือ "+dEx+" วัน";}
+         else{st0="green";leftTxt="เหลือ "+dEx+" วัน";}
+         var skipped=!!(renew_skip[lc]&&renew_skip[lc][L.k]),st=skipped?"skip":st0;
+         renewT.push({code:lc,name:lnm,prov:lpv,lic:L.n,k:L.k,loc:L.loc,basis:(L.loc?"🏛️ ตามท้องถิ่น":"วันในใบ"),expiry:iso(ex),fileby:"ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)",left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
+       });
+     }
+   }
+ }
  // ===== ภาษีป้าย + ภาษีที่ดิน (รายปี · ปฏิทิน) =====
  var pyThai=TODAY.getFullYear()+543;
  function taxTasks(rows,tk,licName,md2,fileTxt,checkPaid){
    if(!rows||rows.length<2)return;
-   var thdr=rows[0],paidCol=-1;
-   if(checkPaid){for(var hi=7;hi<thdr.length;hi++){if((thdr[hi]||"").indexOf(String(pyThai))>=0){paidCol=hi;break;}}}
+   var thr=_findHdr(rows,"รหัสสาขา");if(thr<0)thr=0;var TH=rows[thr];
+   var cTc=_findCol(TH,"รหัสสาขา");if(cTc<0)cTc=_findCol(TH,"Site Code");if(cTc<0)cTc=1;
+   var cSc=_findCol(TH,"Site Code");var cNm=_findCol(TH,"ชื่อสาขา");if(cNm<0)cNm=2;var cPv=_findCol(TH,"จังหวัด");if(cPv<0)cPv=5;
+   var paidCol=-1;if(checkPaid){for(var hi=cTc+1;hi<TH.length;hi++){if((TH[hi]||"").indexOf(String(pyThai))>=0){paidCol=hi;break;}}}
    var due=new Date(TODAY.getFullYear(),md2[0],md2[1]);
-   for(var ti=1;ti<rows.length;ti++){var tr2=rows[ti];var tc=(cc(tr2,1)||"").trim();if(!tc)continue;
+   for(var ti=thr+1;ti<rows.length;ti++){var tr2=rows[ti];var _tRaw=(cc(tr2,cTc)||"").trim();var _sc=(cSc>=0?(cc(tr2,cSc)||"").trim():"");if(!_tRaw&&!_sc)continue;var tc=_sc||siteByT[_tRaw]||_tRaw;
      var paid=(checkPaid&&paidCol>=0)?!!((cc(tr2,paidCol)||"").trim()):false;
      var dDue=daysBetween(due,TODAY),st0,leftTxt;
      if(paid){st0="green";leftTxt="✓ ทำแล้ว ("+pyThai+")";}
@@ -1296,7 +1304,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand){
      else{st0="green";leftTxt="ยังไม่ถึงกำหนด";}
      var skipped=!!(renew_skip[tc]&&renew_skip[tc][tk]);
      var st=skipped?"skip":st0;
-     renewT.push({code:tc,name:cc(tr2,2),prov:cc(tr2,5),lic:licName,k:tk,loc:false,basis:"🗓️ ภาษีรายปี",expiry:"รายปี "+pyThai,fileby:fileTxt,left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
+     renewT.push({code:tc,name:cc(tr2,cNm),prov:cc(tr2,cPv),lic:licName,k:tk,loc:false,basis:"🗓️ ภาษีรายปี",expiry:"รายปี "+pyThai,fileby:fileTxt,left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
    }
  }
  taxTasks(taxSign,"tax_sign","ภาษีป้าย",[2,31],"ยื่น ภ.ป.1 ภายใน มี.ค.",true);
