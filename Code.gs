@@ -196,6 +196,11 @@ function _diffTab(ss, tab, newRows) {
 }
 function _logChanges(ss, diffs) {
   var cs = ss.getSheetByName("_changes") || ss.insertSheet("_changes");
+  if (cs.getLastRow() > 5000) {                    // กันบวม 10M: เกิน 5000 แถว = ล้างเริ่มใหม่
+    cs.clear();
+    var mr = cs.getMaxRows(); if (mr > 1) cs.deleteRows(2, mr - 1);
+    var mc = cs.getMaxColumns(); if (mc > 6) cs.deleteColumns(7, mc - 6);
+  }
   if (cs.getLastRow() === 0) cs.appendRow(["Timestamp", "Tab", "Site Code", "Column", "Old", "New"]);
   cs.getRange(cs.getLastRow() + 1, 1, diffs.length, 6).setValues(diffs);
 }
