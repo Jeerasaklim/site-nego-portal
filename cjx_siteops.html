@@ -476,7 +476,7 @@ var STW={red:100,amber:65,green:36,none:12,done:100};
 function slaCell(t){return '<div class="slacell"><span class="slatop sla-'+t.st+'">'+esc(t.slatxt)+'</span><span class="slabar"><i style="width:'+STW[t.st]+'%;background:'+STC[t.st]+'"></i></span></div>';}
 function bySk(a,c){return (a.sk[0]-c.sk[0])||(a.sk[1]-c.sk[1]);}
 function fillWho(){var sel=document.getElementById("who");document.getElementById("nc-nego").textContent=DATA.nego.tasks.length;var _svc=document.getElementById("nc-survey");if(_svc)_svc.textContent=DATA.survey.tasks.length;document.getElementById("nc-ratkit").textContent=DATA.ratkit.o1.tasks.length+DATA.ratkit.reg.tasks.length;var _stc=document.getElementById("nc-site");if(_stc)_stc.textContent=siteAgg().length;
- var showSel=(CURRENT_USER==="__boss__"&&MODE!=="boss"&&MODE!=="cal"&&MODE!=="site");
+ var showSel=(CURRENT_USER==="__boss__"&&MODE!=="boss"&&MODE!=="cal"&&MODE!=="site"&&MODE!=="renew");
  document.getElementById("who-lbl").style.display=showSel?"":"none";document.querySelector(".who-w").style.display=showSel?"":"none";
  if(!showSel)return;
  var ow=md().owners;var h='<option value="__all__">👥 ทั้งทีม ('+md().tasks.length+' งาน)</option>';for(var i=0;i<ow.length;i++){var n=md().tasks.filter(function(x){return x.owner===ow[i];}).length;h+='<option value="'+esc(ow[i])+'">👤 '+esc(ow[i])+' ('+n+')</option>';}sel.innerHTML=h;}
