@@ -392,6 +392,7 @@ tbody tr:hover .gobtn{background:var(--accent);color:#fff;border-color:var(--acc
       <a id="mb-survey" onclick="setMode('survey')"><span class="ni">📐</span> รังวัด <span class="nc" id="nc-survey"></span></a>
       <a id="mb-ratkit" onclick="setMode('ratkit')"><span class="ni">🏛️</span> รัฐกิจ <span class="nc" id="nc-ratkit"></span></a>
       <a id="mb-site" onclick="setMode('site')"><span class="ni">🏪</span> สาขา <span class="nc" id="nc-site"></span></a>
+      <a id="mb-renew" onclick="setMode('renew')"><span class="ni">🔄</span> ต่ออายุ <span class="nc" id="nc-renew"></span></a>
       <a id="mb-cal" onclick="setMode('cal')"><span class="ni">📅</span> Calendar</a>
     </nav>
     <div class="sbottom">
@@ -423,7 +424,7 @@ var NOTES_WH="https://script.google.com/macros/s/AKfycbwpSe8-xhAr7sT24kVUZc8FAWx
 var WRITE_URL="https://script.google.com/macros/s/AKfycbwcTzrkPICy3E2cZuJA93_OWNSg0ezNzs8zV4S_4n8XvoMRcJRM2aMQq3HfIn7nTUdS/exec";var WSECRET="cjx-siteops-write-2026";
 var DATA={updated:"—",wh:NOTES_WH,nego:{owners:[],tasks:[],steps:[],final:""},survey:{owners:[],tasks:[],steps:[],final:""},ratkit:{o1:{owners:[],tasks:[],steps:[],final:""},reg:{owners:[],tasks:[],steps:[],final:""}},perf:{nego:{over:0,pending:0,signed:0,final:0,at_sign:0,close_pct:0,sla_pct:0,total:0},survey:{over:0,wait:0,appoint:0,measured:0,done:0},ratkit:{over:0,reg_over:0,got:0,wait:0,prep:0,waiver:0,sla_pct:0},problems:[],persons_nego:[],persons_rat:[]}};
 var MODE="nego",RATSUB="o1",PSUB="all",OPENTRK="",VIEW="flow",ACTIVE=null,WH=NOTES_WH,SEARCH="",FSTAT="",FCAT="",FOWN="",SITETRK="",SITEOVER=false,SITEPROV="",KFILT="";
-var TITLES={nego:{t:"🤝 ท่อนเจรจา — สัญญา",s:"เจรจา → เสนอ KT → รอเซ็น → รอส่งตรวจ → รอกฎหมายตรวจ → เซ็นแล้ว · (สถานะติดขัด/นำเสนอใหม่ = ตัวกรอง)"},survey:{t:"📐 งานรังวัด — ทีมเจรจา",s:"รอรังวัด → นัดวันรังวัด → รังวัด → ส่งผลให้ก่อสร้าง · SLA รอรังวัด 10 วันทำการ จากวันอนุมัติทำเล"},ratkit:{t:"🏛️ ท่อนรัฐกิจ",s:"ยื่น + ติดตามใบ อ.1 / อนุโลม ตาม SLA"},site:{t:"🏪 รายสาขา — งานค้าง",s:"เลือกสาขา เพื่อดูว่าสาขานั้นมีงานอะไรค้างอยู่บ้าง (รวมทุกท่อน: เจรจา / รังวัด / อ.1 / ทะเบียน) · คลิกเปิดจัดการได้เลย"},boss:{t:"📊 Dashboard",s:"ภาพรวมแต่ละสาย · ตัวเลขหลัก + งานค้างแต่ละขั้น + งานเร่งด่วน · คลิกเปิดดูรายสาขา"},cal:{t:"📅 ปฏิทินงาน — ดูรายวัน",s:"งานครบกำหนดแต่ละวัน · เขียว/เหลือง/แดง ตาม SLA · D-day"}};
+var TITLES={nego:{t:"🤝 ท่อนเจรจา — สัญญา",s:"เจรจา → เสนอ KT → รอเซ็น → รอส่งตรวจ → รอกฎหมายตรวจ → เซ็นแล้ว · (สถานะติดขัด/นำเสนอใหม่ = ตัวกรอง)"},survey:{t:"📐 งานรังวัด — ทีมเจรจา",s:"รอรังวัด → นัดวันรังวัด → รังวัด → ส่งผลให้ก่อสร้าง · SLA รอรังวัด 10 วันทำการ จากวันอนุมัติทำเล"},ratkit:{t:"🏛️ ท่อนรัฐกิจ",s:"ยื่น + ติดตามใบ อ.1 / อนุโลม ตาม SLA"},site:{t:"🏪 รายสาขา — งานค้าง",s:"เลือกสาขา เพื่อดูว่าสาขานั้นมีงานอะไรค้างอยู่บ้าง (รวมทุกท่อน: เจรจา / รังวัด / อ.1 / ทะเบียน) · คลิกเปิดจัดการได้เลย"},boss:{t:"📊 Dashboard",s:"ภาพรวมแต่ละสาย · ตัวเลขหลัก + งานค้างแต่ละขั้น + งานเร่งด่วน · คลิกเปิดดูรายสาขา"},cal:{t:"📅 ปฏิทินงาน — ดูรายวัน",s:"งานครบกำหนดแต่ละวัน · เขียว/เหลือง/แดง ตาม SLA · D-day"},renew:{t:"🔄 ต่ออายุใบอนุญาต",s:"ใบที่ต้องต่อ/จ่ายรายปี — แบบ A นับจากวันเปิดร้าน (เตือน 90 วัน · ซากสัตว์ 60) · แบบ B ปฏิทิน (สุรา 31 ธ.ค. · ป้าย มี.ค. · ที่ดินฯ เม.ย.)"}};
 function esc(s){s=(s==null?"":String(s));return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function md(){return MODE==="ratkit"?DATA.ratkit[RATSUB]:DATA[MODE];}
 function steps(){return md().steps;}
@@ -492,12 +493,13 @@ function render(){
  document.getElementById("belln").textContent=DATA.perf.nego.over+DATA.perf.survey.over+DATA.perf.ratkit.over+DATA.perf.ratkit.reg_over;
  document.getElementById("pgt").innerHTML=TITLES[MODE].t;document.getElementById("pgs").textContent=TITLES[MODE].s;
  document.getElementById("mobtitle").textContent=TITLES[MODE].t.replace(/^\S+\s/,"");
- var seg=document.getElementById("seg");seg.style.display=(MODE==="boss"||MODE==="cal"||MODE==="site")?"none":"flex";
+ var seg=document.getElementById("seg");seg.style.display=(MODE==="boss"||MODE==="cal"||MODE==="site"||MODE==="renew")?"none":"flex";
  seg.innerHTML='<button class="'+(VIEW==="flow"?"on":"")+'" onclick="setV(\'flow\')">Flow + ตาราง</button><button class="'+(VIEW==="alert"?"on":"")+'" onclick="setV(\'alert\')">🔔 เกิน SLA</button>';
  var el=document.getElementById("body");
  if(MODE==="boss"){el.innerHTML=renderBoss();return;}
  if(MODE==="cal"){el.innerHTML=renderCal();return;}
  if(MODE==="site"){el.innerHTML=renderSite();siteFilter();var qs=document.getElementById("q");if(qs&&SEARCH){qs.focus();qs.setSelectionRange(SEARCH.length,SEARCH.length);}return;}
+ if(MODE==="renew"){el.innerHTML=renderRenew();renewFilter();var qr=document.getElementById("q");if(qr&&SEARCH){qr.focus();qr.setSelectionRange(SEARCH.length,SEARCH.length);}return;}
  var team=scopeTasks();var tasks=team;var ss=steps();
  var b="";
  if(MODE==="ratkit")b+='<div class="seg" style="display:inline-flex;margin-bottom:16px"><button class="'+(RATSUB==="o1"?"on":"")+'" onclick="setSub(\'o1\')">🎫 งาน อ.1 ('+DATA.ratkit.o1.tasks.length+')</button><button class="'+(RATSUB==="reg"?"on":"")+'" onclick="setSub(\'reg\')">📋 งานทะเบียน ('+DATA.ratkit.reg.tasks.length+')</button></div>';
@@ -689,6 +691,35 @@ function gotoTrack(code,trk){closeD();
  else if(trk==="survey"){setMode("survey");openSite(code,DATA.survey,"survey");}
  else if(trk==="o1"){setMode("ratkit");setSub("o1");openSite(code,DATA.ratkit.o1,"o1");}
  else if(trk==="reg"){setMode("ratkit");setSub("reg");openSite(code,DATA.ratkit.reg,"reg");}
+}
+/* ---------- แท็บต่ออายุใบอนุญาต ---------- */
+function renewKpi(k){KFILT=(KFILT===k?"":k);render();}
+function renderRenew(){
+ var T=(DATA.renew?DATA.renew.tasks:[]);
+ var red=0,amb=0,grn=0;T.forEach(function(x){if(x.st==="red")red++;else if(x.st==="amber")amb++;else grn++;});
+ var b='<div class="kpis">'
+  +kpiClk(T.length,"🔄 ใบต่อ/จ่ายรายปี (ทั้งหมด)","","renewKpi('all')",KFILT==="all")
+  +kpiClk(red,"🔴 ด่วน (≤14 วัน)","bad","renewKpi('red')",KFILT==="red")
+  +kpiClk(amb,"🟠 เข้าหน้าต่างยื่นแล้ว","warn","renewKpi('amber')",KFILT==="amber")
+  +kpiClk(grn,"🟢 ยังไม่ถึงกำหนด","good","renewKpi('green')",KFILT==="green")
+  +'</div>';
+ b+='<div class="tbar"><input id="q" class="qbox" placeholder="🔍 ค้นหา Site Code / ชื่อสาขา / ใบอนุญาต..." value="'+esc(SEARCH)+'" oninput="SEARCH=this.value;renewFilter()"><span class="pill">🔄 <b id="cnt">0</b> ใบ</span>'+(KFILT?'<span class="chip">กรอง: '+({red:"🔴 ด่วน",amber:"🟠 ใกล้",green:"🟢 ปกติ",all:"ทั้งหมด"}[KFILT]||KFILT)+'</span><span class="clr" onclick="KFILT=\'\';render()">✕</span>':'<span style="color:var(--faint);font-size:12px">แสดงเฉพาะที่ต้องทำ (ด่วน+ใกล้) · กด KPI ดูทั้งหมด</span>')+'<span style="margin-left:auto;color:var(--faint);font-size:12px">เรียง: ด่วนสุดก่อน</span></div>';
+ return b+'<div id="tblbox"></div>';
+}
+function renewFilter(){
+ var T=(DATA.renew?DATA.renew.tasks:[]).slice();
+ var q=(SEARCH||"").toLowerCase();
+ if(q)T=T.filter(function(x){return ((x.code||"")+" "+(x.name||"")+" "+(x.lic||"")+" "+(x.prov||"")).toLowerCase().indexOf(q)>=0;});
+ if(KFILT==="red")T=T.filter(function(x){return x.st==="red";});
+ else if(KFILT==="amber")T=T.filter(function(x){return x.st==="amber";});
+ else if(KFILT==="green")T=T.filter(function(x){return x.st==="green";});
+ else if(KFILT!=="all")T=T.filter(function(x){return x.st==="red"||x.st==="amber";});
+ T.sort(function(a,b){return (b.sev-a.sev)||((a.expiry>b.expiry)?1:((a.expiry<b.expiry)?-1:0))||((a.code>b.code)?1:-1);});
+ var h;
+ if(!T.length){h='<div class="tblwrap"><table><tbody><tr><td style="text-align:center;color:var(--faint);padding:34px">ไม่มีใบที่ต้องทำในมุมนี้ 🎉</td></tr></tbody></table></div>';}
+ else{h='<div class="tblwrap"><table><thead><tr><th>สาขา</th><th>จังหวัด</th><th>ใบอนุญาต</th><th>ฐานคำนวณ</th><th>วันหมด/กำหนด</th><th>ต้องยื่นภายใน</th><th>เหลือ</th></tr></thead><tbody>';
+  h+=T.map(function(x){return '<tr><td><div class="c1"><span class="sdot '+x.st+'"></span><div><div class="code">'+esc(x.code)+'</div><div class="nm2">'+esc(x.name||"")+'</div></div></div></td><td>'+esc(x.prov||"")+'</td><td>'+esc(x.lic)+'</td><td><span class="chip">'+esc(x.basis)+'</span></td><td>'+esc(x.expiry)+'</td><td>'+esc(x.fileby)+'</td><td><span class="sla-'+x.st+'">'+esc(x.left)+'</span></td></tr>';}).join("")+'</tbody></table></div>';}
+ var box=document.getElementById("tblbox");if(box)box.innerHTML=h;var c=document.getElementById("cnt");if(c)c.textContent=T.length;
 }
 function pcnt(arr,step){var n=0;for(var i=0;i<arr.length;i++)if(arr[i].step===step)n++;return n;}
 function lensH(t,u){return '<div class="plensh'+(u?" u":"")+'"><span class="pdot"></span>'+t+'</div>';}
@@ -983,7 +1014,7 @@ function exportCSV(){var list=visRows();var hdr,rows;
 function exportPerf(){var rows;var trk=(PSUB==="o1"||PSUB==="reg")?PSUB:"neg";
  if(trk==="neg"){rows=[["อันดับ","ชื่อ","งานในมือ","% เซ็น","เกิน SLA"]];DATA.perf.persons_nego.forEach(function(x,i){rows.push([i+1,x.nm,x.hold,x.pct+"%",x.over]);});downloadCSV("CJX_Perf_เจรจา_รายคน_"+DATA.updated+".csv",rows);}
  else{var arr=(trk==="o1"?DATA.ratkit.o1.tasks:DATA.ratkit.reg.tasks);rows=[["Site Code","ชื่อสาขา","จังหวัด","ผู้รับผิดชอบ","ขั้นตอน","สถานะ SLA"]];arr.forEach(function(t){rows.push([t.code,t.name,t.prov,t.owner,t.step,t.slatxt]);});downloadCSV("CJX_Perf_"+(trk==="o1"?"อ.1":"ทะเบียน")+"_"+DATA.updated+".csv",rows);}}
-function setMode(m){MODE=m;RATSUB="o1";PSUB="all";VIEW="flow";ACTIVE=null;KFILT="";SEARCH="";FSTAT="";FCAT="";FOWN="";SITETRK="";SITEOVER=false;SITEPROV="";document.getElementById("app").setAttribute("data-mode",m);["nego","survey","ratkit","site","boss","cal"].forEach(function(x){var e=document.getElementById("mb-"+x);if(e)e.className=(x===m?"on":"");});closeSide();fillWho();render();}
+function setMode(m){MODE=m;RATSUB="o1";PSUB="all";VIEW="flow";ACTIVE=null;KFILT="";SEARCH="";FSTAT="";FCAT="";FOWN="";SITETRK="";SITEOVER=false;SITEPROV="";document.getElementById("app").setAttribute("data-mode",m);["nego","survey","ratkit","site","renew","boss","cal"].forEach(function(x){var e=document.getElementById("mb-"+x);if(e)e.className=(x===m?"on":"");});closeSide();fillWho();render();}
 function toggleSide(){var s=document.getElementById("side");if(!s)return;var op=s.classList.toggle("open");var sc=document.getElementById("sidescrim");if(sc)sc.classList.toggle("show",op);}
 function closeSide(){var s=document.getElementById("side");if(s)s.classList.remove("open");var sc=document.getElementById("sidescrim");if(sc)sc.classList.remove("show");}
 
@@ -1174,6 +1205,41 @@ function compute(neg,sla,reg,constr,ratown,upd,flow){
      why:"เปิด "+(cc(r,4)||"?")+" · เสร็จ "+doneN+"/"+DOCS.length+" ใบ",
      w:(pend.length?{track:"reg",field:"done",value:pend[0].col,lbl:"✅ "+pend[0].n+" เสร็จ"}:null)});}
  var regOver=regT.filter(function(t){return t.st=="red";}).length;
+ // ===== ต่ออายุใบอนุญาต — แบบ A นับจากวันเปิดร้าน · แบบ B ปฏิทิน (v1: ชุดใบมาตรฐานทุกสาขาที่เปิดแล้ว) =====
+ var RENEW_LIC=[
+  {n:"สะสม/จำหน่ายอาหาร",ty:"A",lead:90},
+  {n:"กิจการอันตราย — ยาฆ่าแมลง (ปร.11)",ty:"A",lead:90},
+  {n:"กิจการอันตราย — แก็ซ (ปร.12)",ty:"A",lead:90},
+  {n:"ค้าซากสัตว์ (ร.10)",ty:"A",lead:60},
+  {n:"สุรา + อาหารสัตว์",ty:"B",mo:12,dy:31,wmo:10,basis:"สิ้นปี",wtxt:"1 ต.ค.–31 ธ.ค."},
+  {n:"ภาษีป้าย",ty:"B",mo:3,dy:31,wmo:1,basis:"ระบุเดือน",wtxt:"ยื่น ภ.ป.1 ภายใน มี.ค."},
+  {n:"ภาษีที่ดินและสิ่งปลูกสร้าง",ty:"B",mo:4,dy:30,wmo:3,basis:"ระบุเดือน",wtxt:"ชำระภายใน เม.ย."}
+ ];
+ var renewT=[];
+ for(var ri=1;ri<reg.length;ri++){var rr=reg[ri];var rc=cc(rr,0);if(!rc)continue;var opd2=pdate(cc(rr,4));if(!opd2||opd2>TODAY)continue;
+  var rnm=cc(rr,1),rpv=cc(rr,2);
+  RENEW_LIC.forEach(function(L){
+   var ex,exTxt,fileTxt,basisTxt,leftTxt,st,dEx;
+   if(L.ty==="A"){
+    var om=opd2.getMonth(),od=opd2.getDate(),yy=TODAY.getFullYear();
+    ex=new Date(yy,om,od);if(ex<TODAY)ex=new Date(yy+1,om,od);
+    var yrs=ex.getFullYear()-opd2.getFullYear();
+    var fb=new Date(ex.getTime()-L.lead*86400000);
+    dEx=daysBetween(ex,TODAY);
+    basisTxt="วันเปิด + "+yrs+" ปี";exTxt=iso(ex);fileTxt="ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)";
+    if(dEx<=14){st="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}
+    else if(dEx<=L.lead){st="amber";leftTxt="ต้องยื่น · เหลือ "+dEx+" วัน";}
+    else{st="green";leftTxt="เหลือ "+dEx+" วัน";}
+   }else{
+    var yb=TODAY.getFullYear();ex=new Date(yb,L.mo-1,L.dy);if(ex<TODAY)ex=new Date(yb+1,L.mo-1,L.dy);
+    var ws=new Date(ex.getFullYear(),L.wmo-1,1);dEx=daysBetween(ex,TODAY);
+    basisTxt=L.basis;exTxt=iso(ex);fileTxt=L.wtxt;
+    if(TODAY>=ws){if(dEx<=14){st="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}else{st="amber";leftTxt="ต้องทำ · เหลือ "+dEx+" วัน";}}
+    else{st="green";leftTxt="ยังไม่ถึงกำหนด ("+dEx+" วัน)";}
+   }
+   renewT.push({code:rc,name:rnm,prov:rpv,lic:L.n,ty:L.ty,basis:basisTxt,expiry:exTxt,fileby:fileTxt,left:leftTxt,st:st,sev:(st==="red"?3:(st==="amber"?2:1))});
+  });
+ }
  // ================= รังวัด (งานทีมเจรจา) — จากชีต SLA =================
  // col11 วันพิจารณาทำเล(อนุมัติ) · col12 รังวัดพื้นที่ · col13 วันส่งผลรังวัด · col56 ก่อสร้างรับผล · col73 ผลอนุมัติรถตู้
  var negOwn={},negNm2={},negProv2={};
@@ -1235,6 +1301,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow){
    nego:{owners:owners(negT),tasks:negT,steps:NEGO_STEPS,final:NF},
    survey:{owners:owners(svyT),tasks:svyT,steps:SVY_STEPS,final:SVF},
    ratkit:{o1:{owners:owners(ratT),tasks:ratT,steps:RAT_STEPS,final:OF},reg:{owners:owners(regT),tasks:regT,steps:REG_STEPS,final:RGF}},
+   renew:{tasks:renewT},
    perf:{nego:{total:nTotal,signed:nSignedAll,pending:nPending,final:nFinal,at_sign:negT.filter(function(t){return t.step=="รอเซ็นสัญญา";}).length,over:nOver,close_pct:nTotal?Math.round(100*nSignedAll/nTotal):0,sla_pct:nSla?Math.round(100*(nSla-nOver)/nSla):100},
      survey:{over:svOver,wait:svWait,appoint:svAppt,measured:svMeas,done:svDone},
      ratkit:{got:oGot,wait:rSub,prep:rPrep,waiver:oWai,over:rOver,reg_wait:regT.length,reg_over:regOver,sla_pct:rSub?Math.round(100*(rSub-rOver)/rSub):100},
