@@ -1232,8 +1232,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic){
   {col:15, k:"haz_gas", n:"กิจการอันตราย (แก๊สกระป๋อง)", lead:45, loc:true}
  ];
  var renewT=[];
- if(lic&&lic.length>1){for(var li2=1;li2<lic.length;li2++){var lr=lic[li2];var lcRaw=(cc(lr,1)||"").trim();if(!lcRaw)continue;
-   var _mc=lcRaw.match(/^[Tt]0*(\d+)$/);var lc=_mc?("CJX69-"+("0000"+_mc[1]).slice(-4)):lcRaw;   // T004 → CJX69-0004
+ if(lic&&lic.length>1){for(var li2=1;li2<lic.length;li2++){var lr=lic[li2];var lc=(cc(lr,1)||"").trim();if(!lc)continue;
    var lnm=cc(lr,2),lpv=cc(lr,5);
    LIC_COLS.forEach(function(L){
     var ex=pdate((cc(lr,L.col)||"").trim());
