@@ -392,7 +392,6 @@ tbody tr:hover .gobtn{background:var(--accent);color:#fff;border-color:var(--acc
       <a id="mb-survey" onclick="setMode('survey')"><span class="ni">📐</span> รังวัด <span class="nc" id="nc-survey"></span></a>
       <a id="mb-ratkit" onclick="setMode('ratkit')"><span class="ni">🏛️</span> รัฐกิจ <span class="nc" id="nc-ratkit"></span></a>
       <a id="mb-site" onclick="setMode('site')"><span class="ni">🏪</span> สาขา <span class="nc" id="nc-site"></span></a>
-      <a id="mb-renew" onclick="setMode('renew')"><span class="ni">🔄</span> ต่ออายุ <span class="nc" id="nc-renew"></span></a>
       <a id="mb-cal" onclick="setMode('cal')"><span class="ni">📅</span> Calendar</a>
     </nav>
     <div class="sbottom">
@@ -476,7 +475,7 @@ var STW={red:100,amber:65,green:36,none:12,done:100};
 function slaCell(t){return '<div class="slacell"><span class="slatop sla-'+t.st+'">'+esc(t.slatxt)+'</span><span class="slabar"><i style="width:'+STW[t.st]+'%;background:'+STC[t.st]+'"></i></span></div>';}
 function bySk(a,c){return (a.sk[0]-c.sk[0])||(a.sk[1]-c.sk[1]);}
 function fillWho(){var sel=document.getElementById("who");document.getElementById("nc-nego").textContent=DATA.nego.tasks.length;var _svc=document.getElementById("nc-survey");if(_svc)_svc.textContent=DATA.survey.tasks.length;document.getElementById("nc-ratkit").textContent=DATA.ratkit.o1.tasks.length+DATA.ratkit.reg.tasks.length;var _stc=document.getElementById("nc-site");if(_stc)_stc.textContent=siteAgg().length;
- var showSel=(CURRENT_USER==="__boss__"&&MODE!=="boss"&&MODE!=="cal"&&MODE!=="site"&&MODE!=="renew");
+ var showSel=(CURRENT_USER==="__boss__"&&MODE!=="boss"&&MODE!=="cal"&&MODE!=="site"&&!(MODE==="ratkit"&&RATSUB==="renew"));
  document.getElementById("who-lbl").style.display=showSel?"":"none";document.querySelector(".who-w").style.display=showSel?"":"none";
  if(!showSel)return;
  var ow=md().owners;var h='<option value="__all__">👥 ทั้งทีม ('+md().tasks.length+' งาน)</option>';for(var i=0;i<ow.length;i++){var n=md().tasks.filter(function(x){return x.owner===ow[i];}).length;h+='<option value="'+esc(ow[i])+'">👤 '+esc(ow[i])+' ('+n+')</option>';}sel.innerHTML=h;}
@@ -493,16 +492,16 @@ function render(){
  document.getElementById("belln").textContent=DATA.perf.nego.over+DATA.perf.survey.over+DATA.perf.ratkit.over+DATA.perf.ratkit.reg_over;
  document.getElementById("pgt").innerHTML=TITLES[MODE].t;document.getElementById("pgs").textContent=TITLES[MODE].s;
  document.getElementById("mobtitle").textContent=TITLES[MODE].t.replace(/^\S+\s/,"");
- var seg=document.getElementById("seg");seg.style.display=(MODE==="boss"||MODE==="cal"||MODE==="site"||MODE==="renew")?"none":"flex";
+ var seg=document.getElementById("seg");seg.style.display=(MODE==="boss"||MODE==="cal"||MODE==="site"||(MODE==="ratkit"&&RATSUB==="renew"))?"none":"flex";
  seg.innerHTML='<button class="'+(VIEW==="flow"?"on":"")+'" onclick="setV(\'flow\')">Flow + ตาราง</button><button class="'+(VIEW==="alert"?"on":"")+'" onclick="setV(\'alert\')">🔔 เกิน SLA</button>';
  var el=document.getElementById("body");
  if(MODE==="boss"){el.innerHTML=renderBoss();return;}
  if(MODE==="cal"){el.innerHTML=renderCal();return;}
  if(MODE==="site"){el.innerHTML=renderSite();siteFilter();var qs=document.getElementById("q");if(qs&&SEARCH){qs.focus();qs.setSelectionRange(SEARCH.length,SEARCH.length);}return;}
- if(MODE==="renew"){el.innerHTML=renderRenew();renewFilter();var qr=document.getElementById("q");if(qr&&SEARCH){qr.focus();qr.setSelectionRange(SEARCH.length,SEARCH.length);}return;}
+ if(MODE==="ratkit"&&RATSUB==="renew"){document.getElementById("pgt").innerHTML="🔄 ต่ออายุใบอนุญาต";document.getElementById("pgs").textContent="ใบที่ต้องต่อ/จ่ายรายปี — แบบ A นับจากวันเปิดร้าน (เตือน 90 วัน · ซากสัตว์ 60) · แบบ B ปฏิทิน (สุรา 31 ธ.ค. · ป้าย มี.ค. · ที่ดินฯ เม.ย.)";el.innerHTML=ratSub()+renderRenew();renewFilter();var qr=document.getElementById("q");if(qr&&SEARCH){qr.focus();qr.setSelectionRange(SEARCH.length,SEARCH.length);}return;}
  var team=scopeTasks();var tasks=team;var ss=steps();
  var b="";
- if(MODE==="ratkit")b+='<div class="seg" style="display:inline-flex;margin-bottom:16px"><button class="'+(RATSUB==="o1"?"on":"")+'" onclick="setSub(\'o1\')">🎫 งาน อ.1 ('+DATA.ratkit.o1.tasks.length+')</button><button class="'+(RATSUB==="reg"?"on":"")+'" onclick="setSub(\'reg\')">📋 งานทะเบียน ('+DATA.ratkit.reg.tasks.length+')</button></div>';
+ if(MODE==="ratkit")b+=ratSub();
  var KP=kpis(team);window._kp=KP;
  b+='<div class="kpis">'+KP.map(function(k,i){var on=(k.f&&((k.f.step&&ACTIVE===k.f.step)||(k.f.k&&k.f.k!=="all"&&KFILT===k.f.k)));return '<div class="kpi '+(k.c||"")+(k.f?" clk":"")+(on?" konn":"")+'"'+(k.f?' onclick="kpiFilter('+i+')"':"")+'><div class="v tnum">'+k.v+'</div><div class="l">'+k.l+'</div></div>';}).join("")+'</div>';
  if(VIEW==="alert"){var ov=tasks.filter(function(t){return t.st==="red";}).sort(bySk);
@@ -558,6 +557,7 @@ function setStep(i){var s=steps()[i];ACTIVE=(ACTIVE===s.stp?null:s.stp);KFILT=""
 function setV(v){VIEW=v;KFILT="";if(MODE==="boss")MODE="nego";render();}
 function findTask(code){var all=md().tasks;for(var i=0;i<all.length;i++)if(all[i].code===code)return all[i];return null;}
 function setSub(s){RATSUB=s;VIEW="flow";ACTIVE=null;KFILT="";SEARCH="";FSTAT="";FCAT="";FOWN="";fillWho();render();}
+function ratSub(){var rn=(DATA.renew&&DATA.renew.tasks)?DATA.renew.tasks.length:0;return '<div class="seg" style="display:inline-flex;margin-bottom:16px"><button class="'+(RATSUB==="o1"?"on":"")+'" onclick="setSub(\'o1\')">🎫 งาน อ.1 ('+DATA.ratkit.o1.tasks.length+')</button><button class="'+(RATSUB==="reg"?"on":"")+'" onclick="setSub(\'reg\')">📋 งานทะเบียน ('+DATA.ratkit.reg.tasks.length+')</button><button class="'+(RATSUB==="renew"?"on":"")+'" onclick="setSub(\'renew\')">🔄 ต่ออายุใบอนุญาต ('+rn+')</button></div>';}
 function canActTrk(trk){if(CURRENT_ROLE==="member")return true;if(CURRENT_ROLE==="gov")return (trk==="o1"||trk==="reg");return true;}
 function calOpen(trk,code){var bkt=(trk==="neg")?DATA.nego:(trk==="o1"?DATA.ratkit.o1:DATA.ratkit.reg);openSite(code,bkt,trk);}
 function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var _q=0;_q<_all.length;_q++)if(_all[_q].code===code){t=_all[_q];break;}if(!t)return;var ss=bkt.steps;var ci=0;for(var k=0;k<ss.length;k++)if(ss[k].stp===t.step)ci=k;var st=ss[ci]||{sla:"",task:""};var _act=(typeof trk!=="undefined")?canActTrk(trk):canAct();
@@ -1014,7 +1014,7 @@ function exportCSV(){var list=visRows();var hdr,rows;
 function exportPerf(){var rows;var trk=(PSUB==="o1"||PSUB==="reg")?PSUB:"neg";
  if(trk==="neg"){rows=[["อันดับ","ชื่อ","งานในมือ","% เซ็น","เกิน SLA"]];DATA.perf.persons_nego.forEach(function(x,i){rows.push([i+1,x.nm,x.hold,x.pct+"%",x.over]);});downloadCSV("CJX_Perf_เจรจา_รายคน_"+DATA.updated+".csv",rows);}
  else{var arr=(trk==="o1"?DATA.ratkit.o1.tasks:DATA.ratkit.reg.tasks);rows=[["Site Code","ชื่อสาขา","จังหวัด","ผู้รับผิดชอบ","ขั้นตอน","สถานะ SLA"]];arr.forEach(function(t){rows.push([t.code,t.name,t.prov,t.owner,t.step,t.slatxt]);});downloadCSV("CJX_Perf_"+(trk==="o1"?"อ.1":"ทะเบียน")+"_"+DATA.updated+".csv",rows);}}
-function setMode(m){MODE=m;RATSUB="o1";PSUB="all";VIEW="flow";ACTIVE=null;KFILT="";SEARCH="";FSTAT="";FCAT="";FOWN="";SITETRK="";SITEOVER=false;SITEPROV="";document.getElementById("app").setAttribute("data-mode",m);["nego","survey","ratkit","site","renew","boss","cal"].forEach(function(x){var e=document.getElementById("mb-"+x);if(e)e.className=(x===m?"on":"");});closeSide();fillWho();render();}
+function setMode(m){MODE=m;RATSUB="o1";PSUB="all";VIEW="flow";ACTIVE=null;KFILT="";SEARCH="";FSTAT="";FCAT="";FOWN="";SITETRK="";SITEOVER=false;SITEPROV="";document.getElementById("app").setAttribute("data-mode",m);["nego","survey","ratkit","site","boss","cal"].forEach(function(x){var e=document.getElementById("mb-"+x);if(e)e.className=(x===m?"on":"");});closeSide();fillWho();render();}
 function toggleSide(){var s=document.getElementById("side");if(!s)return;var op=s.classList.toggle("open");var sc=document.getElementById("sidescrim");if(sc)sc.classList.toggle("show",op);}
 function closeSide(){var s=document.getElementById("side");if(s)s.classList.remove("open");var sc=document.getElementById("sidescrim");if(sc)sc.classList.remove("show");}
 
