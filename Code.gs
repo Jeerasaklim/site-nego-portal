@@ -159,7 +159,7 @@ function syncAll() {
     });
   } catch (err) { log.push("lic-group FAIL:" + err); }
   try { mergePeople(ss); } catch (err) { log.push("people FAIL:" + err); }
-  if (allDiffs.length) _logChanges(ss, allDiffs);   // <== บันทึกการแก้ข้อมูลเก่าจากต้นทาง
+  if (allDiffs.length) { try { _logChanges(ss, allDiffs); } catch (ce) { log.push("changes SKIP:" + ce); } }   // ไม่ให้ล้ม sync ถ้า _changes เต็ม
   var m = ss.getSheetByName("_synced") || ss.insertSheet("_synced");
   m.getRange(1, 1, 1, 2).setValues([[new Date(), log.join(" | ") + (allDiffs.length ? "  ·  ⚠️ แก้ข้อมูลเก่า " + allDiffs.length + " ช่อง" : "")]]);
   return log.join(" | ");
@@ -222,7 +222,18 @@ function _writeRows(ss, tab, rows) {
   var pad = rows.map(function (r) { var a = r.slice(); while (a.length < w) a.push(""); return a; });
   var sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
   sh.clearContents();
-  sh.getRange(1, 1, pad.length, w).setValues(pad);
+  var nr = pad.length, nc = w, mr = sh.getMaxRows();          // ตัด grid ให้พอดีข้อมูล = คืน cells
+  if (mr > nr) sh.deleteRows(nr + 1, mr - nr); else if (mr < nr) sh.insertRowsAfter(mr, nr - mr);
+  var mc = sh.getMaxColumns();
+  if (mc > nc) sh.deleteColumns(nc + 1, mc - nc); else if (mc < nc) sh.insertColumnsAfter(mc, nc - mc);
+  sh.getRange(1, 1, nr, nc).setValues(pad);
+}
+function cellReport() {   // ดูว่า tab ไหนกิน cell เยอะ (แก้ปัญหา 10M limit)
+  var ss = SpreadsheetApp.openById(UPDATES_ID);
+  var lines = [], tot = 0;
+  ss.getSheets().forEach(function (s) { var c = s.getMaxRows() * s.getMaxColumns(); tot += c; lines.push(s.getName() + " : " + s.getMaxRows() + " x " + s.getMaxColumns() + " = " + c); });
+  lines.push("—— TOTAL = " + tot + " / 10,000,000 ——");
+  var msg = lines.join("\n"); Logger.log(msg); return msg;
 }
 
 function setupSync() {
