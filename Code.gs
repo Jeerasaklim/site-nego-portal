@@ -140,21 +140,24 @@ function syncAll() {
     var df = _diffTab(ss, "src_flow", fout); if (df.length) allDiffs = allDiffs.concat(df);
     _writeRows(ss, "src_flow", fout); log.push("src_flow=" + fout.length);
   } catch (err) { log.push("src_flow FAIL:" + err); }
-  try {   // src_lic: ชีตใบอนุญาต (private → ดึงด้วย openById, ไม่ใช่ gviz) · gid 822586661
+  try {   // ชีต "0. CJx Store Document_New" (private → openById) — ดึง 3 แท็บ: ใบอนุญาต + ภาษีป้าย + ภาษีที่ดิน
     var LIC_ID = "1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ";
     var lss = SpreadsheetApp.openById(LIC_ID);
-    var lsh = null, shs = lss.getSheets();
-    for (var li = 0; li < shs.length; li++) { if (shs[li].getSheetId() === 822586661) { lsh = shs[li]; break; } }
-    if (!lsh) lsh = lss.getSheetByName("ใบอนุญาต");
-    var lraw = lsh.getDataRange().getValues();
     var ltz = ss.getSpreadsheetTimeZone();
-    var lout = lraw.map(function (row) { return row.map(function (c) {
-      if (c instanceof Date) return Utilities.formatDate(c, ltz, "yyyy-MM-dd");
-      return (c === null || c === undefined) ? "" : c.toString();
-    }); });
-    _writeRows(ss, "src_lic", lout);
-    log.push("src_lic=" + lout.length);
-  } catch (err) { log.push("src_lic FAIL:" + err); }
+    [["src_lic", "ใบอนุญาต"], ["src_tax_sign", "ภาษีป้าย@2569"], ["src_tax_land", "ภาษีที่ดินและสิ่งปลูกสร้าง@2569"]].forEach(function (pair) {
+      try {
+        var sh = lss.getSheetByName(pair[1]);
+        if (!sh) { log.push(pair[0] + " NO-TAB"); return; }
+        var raw = sh.getDataRange().getValues();
+        var out = raw.map(function (row) { return row.map(function (c) {
+          if (c instanceof Date) return Utilities.formatDate(c, ltz, "yyyy-MM-dd");
+          return (c === null || c === undefined) ? "" : c.toString();
+        }); });
+        _writeRows(ss, pair[0], out);
+        log.push(pair[0] + "=" + out.length);
+      } catch (e2) { log.push(pair[0] + " FAIL:" + e2); }
+    });
+  } catch (err) { log.push("lic-group FAIL:" + err); }
   try { mergePeople(ss); } catch (err) { log.push("people FAIL:" + err); }
   if (allDiffs.length) _logChanges(ss, allDiffs);   // <== บันทึกการแก้ข้อมูลเก่าจากต้นทาง
   var m = ss.getSheetByName("_synced") || ss.insertSheet("_synced");

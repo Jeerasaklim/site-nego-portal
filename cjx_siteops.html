@@ -730,7 +730,7 @@ function renewFilter(){
  var sel=(KFILT&&KFILT!=="all")?KFILT:"";
  function statusFil(arr){return sel?arr.filter(function(x){return x.st===sel;}):arr.filter(function(x){return x.st!=="skip";});}
  function urg(a,b){return (b.sev-a.sev)||((a.expiry>b.expiry)?1:((a.expiry<b.expiry)?-1:0))||((a.code>b.code)?1:-1);}
- var ICON={liquor1:"🍶",liquor2:"🍶",tobacco:"🚬",animal:"🥩",feed:"🐾",food_store:"🍚",food_sell:"🍜",haz_pest:"🧪",haz_gas:"🧯"};
+ var ICON={liquor1:"🍶",liquor2:"🍶",tobacco:"🚬",animal:"🥩",feed:"🐾",food_store:"🍚",food_sell:"🍜",haz_pest:"🧪",haz_gas:"🧯",tax_sign:"🪧",tax_land:"🏞️"};
  var h='';
  h+='<div class="seg" style="display:inline-flex;margin-bottom:12px"><button class="'+(RNVIEW!=="site"?"on":"")+'" onclick="renewView(\'lic\')">📄 รายเอกสาร</button><button class="'+(RNVIEW==="site"?"on":"")+'" onclick="renewView(\'site\')">🏪 รายสาขา</button></div>';
  h+='<div class="kpis">'+kpiClk(scope.length-c.skip,"📋 ต้องต่อ/จ่าย","","renewKpi('')",!KFILT||KFILT==="all")+kpiClk(c.red,"🔴 ด่วน/เลยกำหนด","bad","renewKpi('red')",KFILT==="red")+kpiClk(c.amber,"🟠 ใกล้ยื่น","warn","renewKpi('amber')",KFILT==="amber")+kpiClk(c.green,"🟢 ยังไม่ถึง","good","renewKpi('green')",KFILT==="green")+kpiClk(c.skip,"🚫 ยกเว้น","","renewKpi('skip')",KFILT==="skip")+'</div>';
@@ -1103,7 +1103,7 @@ async function getUpdates(){for(var t=0;t<3;t++){try{var r=await fetch(WRITE_URL
 /* ดึงข้อมูลชีตกลางผ่าน Apps Script (script.google.com) — เลี่ยง CORS ของ docs.google.com บน GitHub Pages */
 async function getTab(tab){for(var t=0;t<3;t++){try{var r=await fetch(WRITE_URL+"?tab="+encodeURIComponent(tab));if(!r.ok)continue;var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}catch(e){}}return [];}
 
-function compute(neg,sla,reg,constr,ratown,upd,flow,lic){
+function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand){
  // ---- SLA sheet (อ.1) ----
  var hr=0;for(var i=0;i<8&&i<sla.length;i++){if(sla[i].join("|").indexOf("Site Code")>=0){hr=i;break;}}
  var SGOT={},SWAI={},SSUB={},SSTP={};function okv(v){return v&&v.indexOf("1899")<0&&v.indexOf("1900")<0;}
@@ -1280,6 +1280,27 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic){
     renewT.push({code:lc,name:lnm,prov:lpv,lic:L.n,k:L.k,loc:L.loc,basis:(L.loc?"🏛️ ตามท้องถิ่น":"วันในใบ"),expiry:iso(ex),fileby:"ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)",left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
    });
  }}
+ // ===== ภาษีป้าย + ภาษีที่ดิน (รายปี · ปฏิทิน) =====
+ var pyThai=TODAY.getFullYear()+543;
+ function taxTasks(rows,tk,licName,md2,fileTxt,checkPaid){
+   if(!rows||rows.length<2)return;
+   var thdr=rows[0],paidCol=-1;
+   if(checkPaid){for(var hi=7;hi<thdr.length;hi++){if((thdr[hi]||"").indexOf(String(pyThai))>=0){paidCol=hi;break;}}}
+   var due=new Date(TODAY.getFullYear(),md2[0],md2[1]);
+   for(var ti=1;ti<rows.length;ti++){var tr2=rows[ti];var tc=(cc(tr2,1)||"").trim();if(!tc)continue;
+     var paid=(checkPaid&&paidCol>=0)?!!((cc(tr2,paidCol)||"").trim()):false;
+     var dDue=daysBetween(due,TODAY),st0,leftTxt;
+     if(paid){st0="green";leftTxt="✓ ทำแล้ว ("+pyThai+")";}
+     else if(dDue<0){st0="red";leftTxt="🔴 เลยกำหนด "+(-dDue)+" วัน · ยังไม่ทำ ("+pyThai+")";}
+     else if(dDue<=60){st0="amber";leftTxt="ใกล้กำหนด · เหลือ "+dDue+" วัน";}
+     else{st0="green";leftTxt="ยังไม่ถึงกำหนด";}
+     var skipped=!!(renew_skip[tc]&&renew_skip[tc][tk]);
+     var st=skipped?"skip":st0;
+     renewT.push({code:tc,name:cc(tr2,2),prov:cc(tr2,5),lic:licName,k:tk,loc:false,basis:"🗓️ ภาษีรายปี",expiry:"รายปี "+pyThai,fileby:fileTxt,left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
+   }
+ }
+ taxTasks(taxSign,"tax_sign","ภาษีป้าย",[2,31],"ยื่น ภ.ป.1 ภายใน มี.ค.",true);
+ taxTasks(taxLand,"tax_land","ภาษีที่ดินและสิ่งปลูกสร้าง",[3,30],"ชำระภายใน เม.ย.",false);
  // ================= รังวัด (งานทีมเจรจา) — จากชีต SLA =================
  // col11 วันพิจารณาทำเล(อนุมัติ) · col12 รังวัดพื้นที่ · col13 วันส่งผลรังวัด · col56 ก่อสร้างรับผล · col73 ผลอนุมัติรถตู้
  var negOwn={},negNm2={},negProv2={};
@@ -1351,8 +1372,8 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic){
 async function boot(silent){
  if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div></div>';
  try{
-   var res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic")]);
-   DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7]);
+   var res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic"),getTab("src_tax_sign"),getTab("src_tax_land")]);
+   DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7],res[8],res[9]);
    // problems (คอขวด) = per step count
    var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});
    DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});
