@@ -704,14 +704,7 @@ function renewSkip(code,k,on){
 }
 function renderRenew(){
  var T=(DATA.renew?DATA.renew.tasks:[]);
- var red=0,amb=0,grn=0,skp=0;T.forEach(function(x){if(x.st==="skip")skp++;else if(x.st==="red")red++;else if(x.st==="amber")amb++;else grn++;});
- var b='<div class="kpis">'
-  +kpiClk(T.length-skp,"🔄 ใบต่อ/จ่ายรายปี","","renewKpi('all')",KFILT==="all")
-  +kpiClk(red,"🔴 ด่วน (≤14 วัน)","bad","renewKpi('red')",KFILT==="red")
-  +kpiClk(amb,"🟠 เข้าหน้าต่างยื่นแล้ว","warn","renewKpi('amber')",KFILT==="amber")
-  +kpiClk(grn,"🟢 ยังไม่ถึงกำหนด","good","renewKpi('green')",KFILT==="green")
-  +kpiClk(skp,"🚫 ยกเว้น (ไม่ต้องขอ)","","renewKpi('skip')",KFILT==="skip")
-  +'</div>';
+ var b='<div class="kpis" id="rnkpi"></div>';
  var _ls={},_lo='<option value="">📄 ทุกประเภทใบ</option>';T.forEach(function(x){if(!_ls[x.k]){_ls[x.k]=1;_lo+='<option value="'+x.k+'"'+(RNLIC===x.k?' selected':'')+'>'+esc(x.lic)+'</option>';}});
  var _ps={};T.forEach(function(x){if(x.prov)_ps[x.prov]=(_ps[x.prov]||0)+1;});
  var _po='<option value="">📍 ทุกจังหวัด</option>'+Object.keys(_ps).sort().map(function(p){return '<option value="'+esc(p)+'"'+(RNPROV===p?' selected':'')+'>'+esc(p)+' ('+_ps[p]+')</option>';}).join('');
@@ -719,11 +712,12 @@ function renderRenew(){
  return b+'<div id="tblbox"></div>';
 }
 function renewFilter(){
- var T=(DATA.renew?DATA.renew.tasks:[]).slice();
+ var all=(DATA.renew?DATA.renew.tasks:[]);
  var q=(SEARCH||"").toLowerCase();
- if(q)T=T.filter(function(x){return ((x.code||"")+" "+(x.name||"")+" "+(x.lic||"")+" "+(x.prov||"")).toLowerCase().indexOf(q)>=0;});
- if(RNLIC)T=T.filter(function(x){return x.k===RNLIC;});
- if(RNPROV)T=T.filter(function(x){return x.prov===RNPROV;});
+ var base=all.filter(function(x){if(q&&((x.code||"")+" "+(x.name||"")+" "+(x.lic||"")+" "+(x.prov||"")).toLowerCase().indexOf(q)<0)return false;if(RNLIC&&x.k!==RNLIC)return false;if(RNPROV&&x.prov!==RNPROV)return false;return true;});
+ var _r=0,_a=0,_g=0,_s=0;base.forEach(function(x){if(x.st==="skip")_s++;else if(x.st==="red")_r++;else if(x.st==="amber")_a++;else _g++;});
+ var _kp=document.getElementById("rnkpi");if(_kp)_kp.innerHTML=kpiClk(base.length-_s,"🔄 ใบต่อ/จ่ายรายปี","","renewKpi('all')",KFILT==="all")+kpiClk(_r,"🔴 ด่วน (≤14 วัน)","bad","renewKpi('red')",KFILT==="red")+kpiClk(_a,"🟠 เข้าหน้าต่างยื่นแล้ว","warn","renewKpi('amber')",KFILT==="amber")+kpiClk(_g,"🟢 ยังไม่ถึงกำหนด","good","renewKpi('green')",KFILT==="green")+kpiClk(_s,"🚫 ยกเว้น (ไม่ต้องขอ)","","renewKpi('skip')",KFILT==="skip");
+ var T=base.slice();
  if(KFILT==="red")T=T.filter(function(x){return x.st==="red";});
  else if(KFILT==="amber")T=T.filter(function(x){return x.st==="amber";});
  else if(KFILT==="green")T=T.filter(function(x){return x.st==="green";});
@@ -1078,7 +1072,7 @@ async function getUpdates(){for(var t=0;t<3;t++){try{var r=await fetch(WRITE_URL
 /* ดึงข้อมูลชีตกลางผ่าน Apps Script (script.google.com) — เลี่ยง CORS ของ docs.google.com บน GitHub Pages */
 async function getTab(tab){for(var t=0;t<3;t++){try{var r=await fetch(WRITE_URL+"?tab="+encodeURIComponent(tab));if(!r.ok)continue;var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}catch(e){}}return [];}
 
-function compute(neg,sla,reg,constr,ratown,upd,flow){
+function compute(neg,sla,reg,constr,ratown,upd,flow,lic){
  // ---- SLA sheet (อ.1) ----
  var hr=0;for(var i=0;i<8&&i<sla.length;i++){if(sla[i].join("|").indexOf("Site Code")>=0){hr=i;break;}}
  var SGOT={},SWAI={},SSUB={},SSTP={};function okv(v){return v&&v.indexOf("1899")<0&&v.indexOf("1900")<0;}
@@ -1225,43 +1219,36 @@ function compute(neg,sla,reg,constr,ratown,upd,flow){
      why:"เปิด "+(cc(r,4)||"?")+" · เสร็จ "+doneN+"/"+DOCS.length+" ใบ",
      w:(pend.length?{track:"reg",field:"done",value:pend[0].col,lbl:"✅ "+pend[0].n+" เสร็จ"}:null)});}
  var regOver=regT.filter(function(t){return t.st=="red";}).length;
- // ===== ต่ออายุใบอนุญาต — แบบ A นับจากวันเปิดร้าน · แบบ B ปฏิทิน (v1: ชุดใบมาตรฐานทุกสาขาที่เปิดแล้ว) =====
- var RENEW_LIC=[
-  {k:"food",n:"สะสม/จำหน่ายอาหาร",ty:"A",lead:90},
-  {k:"haz11",n:"กิจการอันตราย — ยาฆ่าแมลง (ปร.11)",ty:"A",lead:90},
-  {k:"haz12",n:"กิจการอันตราย — แก็ซ (ปร.12)",ty:"A",lead:90},
-  {k:"animal",n:"ค้าซากสัตว์ (ร.10)",ty:"A",lead:60},
-  {k:"liquor",n:"สุรา + อาหารสัตว์",ty:"B",mo:12,dy:31,wmo:10,basis:"สิ้นปี",wtxt:"1 ต.ค.–31 ธ.ค."},
-  {k:"sign",n:"ภาษีป้าย",ty:"B",mo:3,dy:31,wmo:1,basis:"ระบุเดือน",wtxt:"ยื่น ภ.ป.1 ภายใน มี.ค."},
-  {k:"land",n:"ภาษีที่ดินและสิ่งปลูกสร้าง",ty:"B",mo:4,dy:30,wmo:3,basis:"ระบุเดือน",wtxt:"ชำระภายใน เม.ย."}
+ // ===== ต่ออายุใบอนุญาต — อ่านวันหมดจริงจากชีตใบอนุญาต (src_lic) · "-"/ว่าง = ไม่มีใบนั้น =====
+ var LIC_COLS=[
+  {col:7, k:"liquor1", n:"ขายสุรา ประเภท 1 (ค้าส่ง)", lead:90, loc:false},
+  {col:8, k:"liquor2", n:"ขายสุรา ประเภท 2 (ค้าปลีก)", lead:90, loc:false},
+  {col:9, k:"tobacco", n:"ขายยาสูบ ประเภท 2", lead:90, loc:false},
+  {col:10, k:"animal", n:"ค้าซากสัตว์ (ร.10)", lead:60, loc:false},
+  {col:11, k:"feed", n:"ขายอาหารสัตว์", lead:90, loc:false},
+  {col:12, k:"food_store", n:"สะสมอาหาร", lead:45, loc:true},
+  {col:13, k:"food_sell", n:"จำหน่ายอาหาร", lead:45, loc:true},
+  {col:14, k:"haz_pest", n:"กิจการอันตราย (ยาฆ่าแมลง)", lead:45, loc:true},
+  {col:15, k:"haz_gas", n:"กิจการอันตราย (แก๊สกระป๋อง)", lead:45, loc:true}
  ];
  var renewT=[];
- for(var ri=1;ri<reg.length;ri++){var rr=reg[ri];var rc=cc(rr,0);if(!rc)continue;var opd2=pdate(cc(rr,4));if(!opd2||opd2>TODAY)continue;
-  var rnm=cc(rr,1),rpv=cc(rr,2);
-  RENEW_LIC.forEach(function(L){
-   var ex,exTxt,fileTxt,basisTxt,leftTxt,st0,dEx;
-   if(L.ty==="A"){
-    var om=opd2.getMonth(),od=opd2.getDate(),yy=TODAY.getFullYear();
-    ex=new Date(yy,om,od);if(ex<TODAY)ex=new Date(yy+1,om,od);
-    var yrs=ex.getFullYear()-opd2.getFullYear();
+ if(lic&&lic.length>1){for(var li2=1;li2<lic.length;li2++){var lr=lic[li2];var lc=(cc(lr,1)||"").trim();if(!lc)continue;
+   var lnm=cc(lr,2),lpv=cc(lr,5);
+   LIC_COLS.forEach(function(L){
+    var ex=pdate((cc(lr,L.col)||"").trim());
+    if(!ex)return;                                   // ว่าง/"-"/ไม่ใช่วันที่ = ไม่มีใบนี้ที่สาขานี้
+    var dEx=daysBetween(ex,TODAY);
     var fb=new Date(ex.getTime()-L.lead*86400000);
-    dEx=daysBetween(ex,TODAY);
-    basisTxt="วันเปิด + "+yrs+" ปี";exTxt=iso(ex);fileTxt="ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)";
-    if(dEx<=14){st0="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}
+    var st0,leftTxt;
+    if(dEx<0){st0="red";leftTxt="🔴 หมดอายุแล้ว "+(-dEx)+" วัน";}
+    else if(dEx<=14){st0="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}
     else if(dEx<=L.lead){st0="amber";leftTxt="ต้องยื่น · เหลือ "+dEx+" วัน";}
     else{st0="green";leftTxt="เหลือ "+dEx+" วัน";}
-   }else{
-    var yb=TODAY.getFullYear();ex=new Date(yb,L.mo-1,L.dy);if(ex<TODAY)ex=new Date(yb+1,L.mo-1,L.dy);
-    var ws=new Date(ex.getFullYear(),L.wmo-1,1);dEx=daysBetween(ex,TODAY);
-    basisTxt=L.basis;exTxt=iso(ex);fileTxt=L.wtxt;
-    if(TODAY>=ws){if(dEx<=14){st0="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}else{st0="amber";leftTxt="ต้องทำ · เหลือ "+dEx+" วัน";}}
-    else{st0="green";leftTxt="ยังไม่ถึงกำหนด ("+dEx+" วัน)";}
-   }
-   var skipped=!!(renew_skip[rc]&&renew_skip[rc][L.k]);
-   var st=skipped?"skip":st0;
-   renewT.push({code:rc,name:rnm,prov:rpv,lic:L.n,k:L.k,ty:L.ty,basis:basisTxt,expiry:exTxt,fileby:fileTxt,left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
-  });
- }
+    var skipped=!!(renew_skip[lc]&&renew_skip[lc][L.k]);
+    var st=skipped?"skip":st0;
+    renewT.push({code:lc,name:lnm,prov:lpv,lic:L.n,k:L.k,loc:L.loc,basis:(L.loc?"🏛️ ตามท้องถิ่น":"วันในใบ"),expiry:iso(ex),fileby:"ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)",left0:leftTxt,left:(skipped?"🚫 ยกเว้น (ไม่ต้องขอ)":leftTxt),st0:st0,st:st,skip:skipped,sev:(st==="red"?3:(st==="amber"?2:(st==="skip"?-1:1)))});
+   });
+ }}
  // ================= รังวัด (งานทีมเจรจา) — จากชีต SLA =================
  // col11 วันพิจารณาทำเล(อนุมัติ) · col12 รังวัดพื้นที่ · col13 วันส่งผลรังวัด · col56 ก่อสร้างรับผล · col73 ผลอนุมัติรถตู้
  var negOwn={},negNm2={},negProv2={};
@@ -1333,8 +1320,8 @@ function compute(neg,sla,reg,constr,ratown,upd,flow){
 async function boot(silent){
  if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div></div>';
  try{
-   var res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow")]);
-   DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6]);
+   var res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic")]);
+   DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7]);
    // problems (คอขวด) = per step count
    var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});
    DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});

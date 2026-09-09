@@ -140,6 +140,21 @@ function syncAll() {
     var df = _diffTab(ss, "src_flow", fout); if (df.length) allDiffs = allDiffs.concat(df);
     _writeRows(ss, "src_flow", fout); log.push("src_flow=" + fout.length);
   } catch (err) { log.push("src_flow FAIL:" + err); }
+  try {   // src_lic: ชีตใบอนุญาต (private → ดึงด้วย openById, ไม่ใช่ gviz) · gid 822586661
+    var LIC_ID = "1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ";
+    var lss = SpreadsheetApp.openById(LIC_ID);
+    var lsh = null, shs = lss.getSheets();
+    for (var li = 0; li < shs.length; li++) { if (shs[li].getSheetId() === 822586661) { lsh = shs[li]; break; } }
+    if (!lsh) lsh = lss.getSheetByName("ใบอนุญาต");
+    var lraw = lsh.getDataRange().getValues();
+    var ltz = ss.getSpreadsheetTimeZone();
+    var lout = lraw.map(function (row) { return row.map(function (c) {
+      if (c instanceof Date) return Utilities.formatDate(c, ltz, "yyyy-MM-dd");
+      return (c === null || c === undefined) ? "" : c.toString();
+    }); });
+    _writeRows(ss, "src_lic", lout);
+    log.push("src_lic=" + lout.length);
+  } catch (err) { log.push("src_lic FAIL:" + err); }
   try { mergePeople(ss); } catch (err) { log.push("people FAIL:" + err); }
   if (allDiffs.length) _logChanges(ss, allDiffs);   // <== บันทึกการแก้ข้อมูลเก่าจากต้นทาง
   var m = ss.getSheetByName("_synced") || ss.insertSheet("_synced");
