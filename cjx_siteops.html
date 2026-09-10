@@ -696,7 +696,7 @@ function gotoTrack(code,trk){closeD();
 function renewKpi(k){KFILT=(KFILT===k?"":k);renewFilter();}
 function renewView(v){RNVIEW=v;RNLIC="";RNSITE="";renewFilter();}
 function _stPill(st){
- var m={red:['🔴 เลยกำหนด/ด่วน','var(--bad-soft)','var(--bad)'],amber:['🟠 ต้องยื่น','var(--warn-soft)','var(--warn)'],submit:['📤 ยื่นแล้ว รอผล','var(--purple-soft)','var(--purple)'],done:['✅ เสร็จ','var(--good-soft)','var(--good)'],green:['🟢 ยังไม่ถึง','var(--track)','var(--muted)'],skip:['🚫 ยกเว้น','var(--track)','var(--faint)']}[st]||['—','var(--track)','var(--muted)'];
+ var m={red:['🔴 เลยกำหนดต่อ','var(--bad-soft)','var(--bad)'],amber:['🟠 ถึงกำหนดต่อ','var(--warn-soft)','var(--warn)'],submit:['📤 ยื่นเรื่องต่อ·รอผล','var(--purple-soft)','var(--purple)'],done:['✅ ต่อแล้ว','var(--good-soft)','var(--good)'],green:['🟢 ยังไม่ถึงกำหนด','var(--track)','var(--muted)'],skip:['🚫 ไม่ต้องขอ','var(--track)','var(--faint)']}[st]||['—','var(--track)','var(--muted)'];
  return '<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:'+m[1]+';color:'+m[2]+';font-size:11.5px;font-weight:600;white-space:nowrap">'+m[0]+'</span>';
 }
 function licTable(items,showLic){
@@ -726,19 +726,19 @@ function renewAct(code,k,expiry,act){
  var T=(DATA.renew&&DATA.renew.tasks)?DATA.renew.tasks:[];
  T.forEach(function(x){if(x.code===code&&x.k===k){
    if(act==="reset"){x.st=x.skip?"skip":x.st0;x.left=x.skip?"🚫 ยกเว้น (ไม่ต้องขอ)":x.left0;}
-   else if(act==="submit"){x.st="submit";x.left="📤 ยื่นแล้ว · รอผล";}
+   else if(act==="submit"){x.st="submit";x.left="📤 ยื่นเรื่องต่อแล้ว · รอผล";}
    else if(act==="done"){x.st="done";x.left="✅ ต่อแล้ว/จ่ายแล้ว";}
    x.sev=_SEV[x.st];
  }});
  renewFilter();
- _toast({submit:"✓ ตั้งเป็น 'ยื่นแล้ว รอผล'",done:"✓ ตั้งเป็น 'เสร็จ' แล้ว",reset:"✓ ยกเลิกสถานะแล้ว"}[act]||"✓ บันทึกแล้ว");
+ _toast({submit:"✓ ตั้งเป็น 'ยื่นเรื่องต่อแล้ว รอผล'",done:"✓ ตั้งเป็น 'ต่อแล้ว/จ่ายแล้ว'",reset:"✓ ยกเลิกสถานะแล้ว"}[act]||"✓ บันทึกแล้ว");
 }
 function _renewBtns(x){
  var c=esc(x.code),k=x.k,e=esc(x.expiry);
  if(x.skip)return '<button class="gobtn" onclick="renewSkip(\''+c+'\',\''+k+'\',false)">↩︎ เอากลับ</button>';
  if(x.st==="done")return '<button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'reset\')">↩︎ ยกเลิก</button>';
- if(x.st==="submit")return '<button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'done\')">✅ ต่อแล้ว</button> <button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'reset\')">↩︎</button>';
- return '<button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'submit\')">📤 ยื่นแล้ว</button> <button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'done\')">✅ ต่อ/จ่าย</button> <button class="gobtn" onclick="renewSkip(\''+c+'\',\''+k+'\',true)">🚫 ไม่ต้องขอ</button>';
+ if(x.st==="submit")return '<button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'done\')">✅ ต่อแล้ว/จ่ายแล้ว</button> <button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'reset\')">↩︎</button>';
+ return '<button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'submit\')">📤 ยื่นเรื่องต่อ</button> <button class="gobtn" onclick="renewAct(\''+c+'\',\''+k+'\',\''+e+'\',\'done\')">✅ ต่อแล้ว/จ่าย</button> <button class="gobtn" onclick="renewSkip(\''+c+'\',\''+k+'\',true)">🚫 ไม่ต้องขอ</button>';
 }
 function renderRenew(){
  var all=(DATA.renew?DATA.renew.tasks:[]);
@@ -759,7 +759,7 @@ function renewFilter(){
  var h='';
  h+='<div class="seg" style="display:inline-flex;margin-bottom:12px"><button class="'+(RNVIEW!=="site"?"on":"")+'" onclick="renewView(\'lic\')">📄 รายเอกสาร</button><button class="'+(RNVIEW==="site"?"on":"")+'" onclick="renewView(\'site\')">🏪 รายสาขา</button></div>';
  h+='<div style="font-size:13px;color:var(--muted);margin-bottom:8px">📋 ต้องทำทั้งหมด <b style="color:var(--ink)">'+(c.red+c.amber+c.submit)+'</b> รายการ · คลิกขั้นเพื่อกรอง'+(KFILT?' · <span class="clr" onclick="KFILT=\'\';renewFilter()">✕ ล้างตัวกรอง</span>':'')+'</div>';
- var _stages=[['green','🟢','ยังไม่ถึง',c.green],['amber','🟠','ต้องยื่น',c.amber],['red','🔴','เลยกำหนด/ด่วน',c.red],['submit','📤','ยื่นแล้ว·รอผล',c.submit],['done','✅','เสร็จ',c.done],['skip','🚫','ยกเว้น',c.skip]];
+ var _stages=[['green','🟢','ยังไม่ถึง',c.green],['amber','🟠','ถึงกำหนดต่อ',c.amber],['red','🔴','เลยกำหนดต่อ',c.red],['submit','📤','ยื่นเรื่องต่อ·รอผล',c.submit],['done','✅','ต่อแล้ว',c.done],['skip','🚫','ไม่ต้องขอ',c.skip]];
  h+='<div class="rail" style="margin-bottom:14px">';
  _stages.forEach(function(s,i){var onn=(KFILT===s[0]);
    h+='<div class="node'+(onn?' on':'')+((s[0]==='red'&&s[3]>0)?' hot':'')+'" style="cursor:pointer;min-width:118px" onclick="renewKpi(\''+s[0]+'\')"><div class="nh"><span class="ni">'+s[1]+'</span><span class="nt">'+s[2]+'</span><span class="nn tnum">'+s[3]+'</span></div></div>';
@@ -786,7 +786,7 @@ function renewFilter(){
    var order=[],seen={};all.forEach(function(x){if(!seen[x.k]){seen[x.k]=1;order.push({k:x.k,lic:x.lic,loc:x.loc});}});
    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">';
    order.forEach(function(L){var it=scope.filter(function(x){return x.k===L.k;});var cc2={red:0,amber:0,green:0,skip:0,submit:0,done:0};it.forEach(function(x){if(cc2[x.st]==null)cc2[x.st]=0;cc2[x.st]++;});
-    var big,lbl,col;if(sel){big=cc2[sel]||0;lbl={red:"ด่วน/เลย",amber:"ใกล้ยื่น",green:"ยังไม่ถึง",submit:"ยื่นแล้ว",done:"เสร็จ",skip:"ยกเว้น"}[sel];col={red:"var(--bad)",amber:"var(--warn)",green:"var(--faint)",submit:"var(--warn)",done:"var(--good)",skip:"var(--faint)"}[sel];}else{big=cc2.red+cc2.amber+cc2.submit;lbl="ต้องทำ";col="var(--ink)";}
+    var big,lbl,col;if(sel){big=cc2[sel]||0;lbl={red:"เลยกำหนดต่อ",amber:"ถึงกำหนดต่อ",green:"ยังไม่ถึง",submit:"ยื่นเรื่องต่อ",done:"ต่อแล้ว",skip:"ไม่ต้องขอ"}[sel];col={red:"var(--bad)",amber:"var(--warn)",green:"var(--faint)",submit:"var(--warn)",done:"var(--good)",skip:"var(--faint)"}[sel];}else{big=cc2.red+cc2.amber+cc2.submit;lbl="ต้องทำ";col="var(--ink)";}
     h+='<div onclick="RNLIC=\''+L.k+'\';renewFilter()" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px;cursor:pointer" onmouseover="this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.borderColor=\'var(--border)\'"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="font-family:\'IBM Plex Sans Thai\';font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.35">'+(ICON[L.k]||"📄")+' '+esc(L.lic)+'</div><span style="color:var(--faint)">›</span></div><div style="font-size:11px;color:var(--faint);margin-top:3px">'+(L.loc?"🏛️ ตามท้องถิ่น":"ทั่วประเทศ")+'</div><div style="display:flex;align-items:baseline;gap:6px;margin-top:12px"><span style="font-family:\'IBM Plex Sans Thai\';font-weight:800;font-size:30px;color:'+col+'">'+big+'</span><span style="font-size:12px;color:var(--faint)">'+lbl+'</span></div><div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:9px;font-size:12px;font-weight:600">'+(cc2.red?'<span style="color:var(--bad)">🔴 '+cc2.red+'</span>':'')+(cc2.amber?'<span style="color:var(--warn)">🟠 '+cc2.amber+'</span>':'')+(cc2.submit?'<span style="color:var(--warn)">📤 '+cc2.submit+'</span>':'')+(cc2.done?'<span style="color:var(--good)">✅ '+cc2.done+'</span>':'')+(cc2.green?'<span style="color:var(--faint)">🟢 '+cc2.green+'</span>':'')+(cc2.skip?'<span style="color:var(--faint)">🚫 '+cc2.skip+'</span>':'')+'</div></div>';});
    h+='</div>';
   }else{
@@ -1288,7 +1288,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand){
  function _renewResolve(code,k,expiry,skipped,st0,left0){
    if(skipped)return {st:"skip",left:"🚫 ยกเว้น (ไม่ต้องขอ)"};
    var ov=renew_status[code]&&renew_status[code][k];
-   if(ov&&ov.ex===expiry){ if(ov.s==="done")return {st:"done",left:"✅ ต่อแล้ว/จ่ายแล้ว"}; if(ov.s==="submit")return {st:"submit",left:"📤 ยื่นแล้ว · รอผล"}; }
+   if(ov&&ov.ex===expiry){ if(ov.s==="done")return {st:"done",left:"✅ ต่อแล้ว/จ่ายแล้ว"}; if(ov.s==="submit")return {st:"submit",left:"📤 ยื่นเรื่องต่อแล้ว · รอผล"}; }
    return {st:st0,left:left0};
  }
  function _findCol(H,kw){for(var ci=0;ci<H.length;ci++){if((((H[ci]||"")+"")).indexOf(kw)>=0)return ci;}return -1;}
@@ -1317,7 +1317,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand){
          var dEx=daysBetween(ex,TODAY),fb=new Date(ex.getTime()-L.lead*86400000),st0,leftTxt;
          if(dEx<0){st0="red";leftTxt="🔴 หมดอายุแล้ว "+(-dEx)+" วัน";}
          else if(dEx<=14){st0="red";leftTxt="ด่วน · เหลือ "+dEx+" วัน";}
-         else if(dEx<=L.lead){st0="amber";leftTxt="ต้องยื่น · เหลือ "+dEx+" วัน";}
+         else if(dEx<=L.lead){st0="amber";leftTxt="ถึงกำหนดต่อ · เหลือ "+dEx+" วัน";}
          else{st0="green";leftTxt="เหลือ "+dEx+" วัน";}
          var skipped=!!(renew_skip[lc]&&renew_skip[lc][L.k]),_R=_renewResolve(lc,L.k,iso(ex),skipped,st0,leftTxt);
          renewT.push({code:lc,name:lnm,prov:lpv,lic:L.n,k:L.k,loc:L.loc,basis:(L.loc?"🏛️ ตามท้องถิ่น":"วันในใบ"),expiry:iso(ex),fileby:"ภายใน "+iso(fb)+" (ก่อน "+L.lead+" วัน)",left0:leftTxt,left:_R.left,st0:st0,st:_R.st,skip:skipped,sev:SEVMAP[_R.st]});
