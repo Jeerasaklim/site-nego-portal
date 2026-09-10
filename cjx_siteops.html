@@ -695,17 +695,19 @@ function gotoTrack(code,trk){closeD();
 /* ---------- แท็บต่ออายุใบอนุญาต ---------- */
 function renewKpi(k){KFILT=(KFILT===k?"":k);renewFilter();}
 function renewView(v){RNVIEW=v;RNLIC="";RNSITE="";renewFilter();}
+function _stPill(st){
+ var m={red:['🔴 เลยกำหนด/ด่วน','var(--bad-soft)','var(--bad)'],amber:['🟠 ต้องยื่น','var(--warn-soft)','var(--warn)'],submit:['📤 ยื่นแล้ว รอผล','var(--purple-soft)','var(--purple)'],done:['✅ เสร็จ','var(--good-soft)','var(--good)'],green:['🟢 ยังไม่ถึง','var(--track)','var(--muted)'],skip:['🚫 ยกเว้น','var(--track)','var(--faint)']}[st]||['—','var(--track)','var(--muted)'];
+ return '<span style="display:inline-block;padding:3px 10px;border-radius:999px;background:'+m[1]+';color:'+m[2]+';font-size:11.5px;font-weight:600;white-space:nowrap">'+m[0]+'</span>';
+}
 function licTable(items,showLic){
  if(!items.length)return '<div class="tblwrap"><table><tbody><tr><td style="text-align:center;color:var(--faint);padding:34px">ไม่มีในมุมนี้ 🎉</td></tr></tbody></table></div>';
- var h='<div class="tblwrap"><table><thead><tr>'+(showLic?'<th>ใบอนุญาต</th>':'<th>สาขา</th>')+'<th>วันหมด</th><th>ต้องยื่นภายใน</th><th>เหลือ</th><th class="r act"></th></tr></thead><tbody>';
+ var h='<div class="tblwrap"><table><thead><tr>'+(showLic?'<th>ใบอนุญาต</th>':'<th>สาขา</th>')+'<th>สถานะ</th><th>วันหมด</th><th>ต้องยื่นภายใน</th><th>เหลือ</th><th class="r act"></th></tr></thead><tbody>';
  h+=items.map(function(x){var dot=(x.st==="skip"?"none":(x.st==="submit"?"amber":(x.st==="done"?"done":x.st)));
-   var slaCls=(x.st==="skip"?"":(x.st==="submit"?"sla-amber":"sla-"+x.st));
-   var act=_renewBtns(x);
    var faded=(x.skip||x.st==="done");
    var col1=showLic
      ? '<td><div class="c1"><span class="sdot '+dot+'"></span><div><div class="code" style="font-size:12.5px">'+esc(x.lic)+'</div>'+(x.loc?'<div class="nm2">🏛️ ตามท้องถิ่น</div>':'')+'</div></div></td>'
      : '<td><div class="c1"><span class="sdot '+dot+'"></span><div><div class="code">'+esc(x.code)+'</div><div class="nm2">'+esc(x.name||"")+'</div></div></div></td>';
-   return '<tr'+(faded?' style="opacity:.55"':'')+'>'+col1+'<td>'+esc(x.expiry)+'</td><td>'+esc(x.fileby)+'</td><td><span class="'+slaCls+'">'+esc(x.left)+'</span></td><td class="r act">'+act+'</td></tr>';
+   return '<tr'+(faded?' style="opacity:.6"':'')+'>'+col1+'<td>'+_stPill(x.st)+'</td><td>'+esc(x.expiry)+'</td><td>'+esc(x.fileby)+'</td><td style="color:var(--muted);font-size:12px">'+esc(x.left)+'</td><td class="r act">'+_renewBtns(x)+'</td></tr>';
  }).join("");
  return h+'</tbody></table></div>';
 }
@@ -756,7 +758,14 @@ function renewFilter(){
  var ICON={liquor1:"🍶",liquor2:"🍶",tobacco:"🚬",animal:"🥩",feed:"🐾",food_store:"🍚",food_sell:"🍜",haz_pest:"🧪",haz_gas:"🧯",tax_sign:"🪧",tax_land:"🏞️"};
  var h='';
  h+='<div class="seg" style="display:inline-flex;margin-bottom:12px"><button class="'+(RNVIEW!=="site"?"on":"")+'" onclick="renewView(\'lic\')">📄 รายเอกสาร</button><button class="'+(RNVIEW==="site"?"on":"")+'" onclick="renewView(\'site\')">🏪 รายสาขา</button></div>';
- h+='<div class="kpis">'+kpiClk(c.red+c.amber+c.submit,"📋 ต้องทำ","","renewKpi('')",!KFILT||KFILT==="all")+kpiClk(c.red,"🔴 ด่วน/เลย","bad","renewKpi('red')",KFILT==="red")+kpiClk(c.amber,"🟠 ใกล้ยื่น","warn","renewKpi('amber')",KFILT==="amber")+kpiClk(c.submit,"📤 ยื่นแล้ว รอผล","","renewKpi('submit')",KFILT==="submit")+kpiClk(c.done,"✅ เสร็จแล้ว","good","renewKpi('done')",KFILT==="done")+kpiClk(c.green,"🟢 ยังไม่ถึง","","renewKpi('green')",KFILT==="green")+kpiClk(c.skip,"🚫 ยกเว้น","","renewKpi('skip')",KFILT==="skip")+'</div>';
+ h+='<div style="font-size:13px;color:var(--muted);margin-bottom:8px">📋 ต้องทำทั้งหมด <b style="color:var(--ink)">'+(c.red+c.amber+c.submit)+'</b> รายการ · คลิกขั้นเพื่อกรอง'+(KFILT?' · <span class="clr" onclick="KFILT=\'\';renewFilter()">✕ ล้างตัวกรอง</span>':'')+'</div>';
+ var _stages=[['green','🟢','ยังไม่ถึง',c.green],['amber','🟠','ต้องยื่น',c.amber],['red','🔴','เลยกำหนด/ด่วน',c.red],['submit','📤','ยื่นแล้ว·รอผล',c.submit],['done','✅','เสร็จ',c.done],['skip','🚫','ยกเว้น',c.skip]];
+ h+='<div class="rail" style="margin-bottom:14px">';
+ _stages.forEach(function(s,i){var onn=(KFILT===s[0]);
+   h+='<div class="node'+(onn?' on':'')+((s[0]==='red'&&s[3]>0)?' hot':'')+'" style="cursor:pointer;min-width:118px" onclick="renewKpi(\''+s[0]+'\')"><div class="nh"><span class="ni">'+s[1]+'</span><span class="nt">'+s[2]+'</span><span class="nn tnum">'+s[3]+'</span></div></div>';
+   if(i<_stages.length-1)h+='<div class="railgap">'+(i<4?'→':'·')+'</div>';
+ });
+ h+='</div>';
  if(RNVIEW==="site"){
   if(!RNSITE){
    var mp={},ord=[];scope.forEach(function(x){var m=mp[x.code];if(!m){m=mp[x.code]={code:x.code,name:x.name,prov:x.prov,r:0,a:0,g:0,s:0,sm:0,dn:0};ord.push(x.code);}if(x.st==="skip")m.s++;else if(x.st==="submit")m.sm++;else if(x.st==="done")m.dn++;else if(x.st==="red")m.r++;else if(x.st==="amber")m.a++;else m.g++;});
