@@ -187,7 +187,8 @@ function _diffTab(ss, tab, newRows) {
     for (var j = 1; j < w; j++) {                    // ข้าม col0 (Site Code)
       var ov = (orow[j] == null ? "" : orow[j]).toString().trim();
       var nv = (nr[j] == null ? "" : nr[j]).toString().trim();
-      if (ov !== "" && ov !== nv) {                  // ค่าเดิมมีอยู่แล้ว แล้วถูกเปลี่ยน = การแก้
+      // ข้าม "ตัวเลขล้วน → ตัวเลขล้วน" (aging/SLA/ค่า computed ที่ขยับเองทุก sync = noise) · เก็บเฉพาะ สถานะ/วันที่/ข้อความ ที่คนแก้
+      if (ov !== "" && ov !== nv && !(/^-?[\d,]+(\.\d+)?$/.test(ov) && /^-?[\d,]+(\.\d+)?$/.test(nv))) {
         diffs.push([new Date(), tab, code, (hdr[j] || ("col" + j)).toString().replace(/\s+/g, " ").trim(), ov, nv]);
       }
     }
@@ -196,7 +197,7 @@ function _diffTab(ss, tab, newRows) {
 }
 function _logChanges(ss, diffs) {
   var cs = ss.getSheetByName("_changes") || ss.insertSheet("_changes");
-  if (cs.getLastRow() > 5000) {                    // กันบวม 10M: เกิน 5000 แถว = ล้างเริ่มใหม่
+  if (cs.getLastRow() > 20000) {                   // กันบวม 10M: เกิน 20000 แถว = ล้างเริ่มใหม่ (เก็บประวัติได้หลายเดือน)
     cs.clear();
     var mr = cs.getMaxRows(); if (mr > 1) cs.deleteRows(2, mr - 1);
     var mc = cs.getMaxColumns(); if (mc > 6) cs.deleteColumns(7, mc - 6);
