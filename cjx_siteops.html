@@ -462,7 +462,7 @@ function onGoogleCred(resp){var p=decodeJwt(resp.credential||"");var email=(p.em
    if(info)info.innerHTML="⚠️ อีเมลนี้ยังไม่ได้ผูกชื่อในระบบ<br>("+esc(email)+")<br>ให้ผู้ดูแลกรอกในชีต people";return;}
  try{localStorage.setItem("siteops_email",email);}catch(e){}SITE_EMAIL=email;CURRENT_ROLE=roleKind(m.role);
  doLogin(CURRENT_ROLE==="member"?m.name:"__boss__");}   /* member = เห็นแค่ตัวเอง · อื่นๆ = เห็นทุกคน */
-function doLogin(u){CURRENT_USER=u;try{localStorage.setItem("siteops_user",u);}catch(e){}document.getElementById("login").style.display="none";MODE="nego";applyUserUI();fillWho();render();}
+function doLogin(u){CURRENT_USER=u;try{localStorage.setItem("siteops_user",u);}catch(e){}document.getElementById("login").style.display="none";MODE="nego";applyUserUI();fillWho();render();tryPendingOpen();}
 function logout(){try{localStorage.removeItem("siteops_user");localStorage.removeItem("siteops_email");}catch(e){}CURRENT_USER=null;SITE_EMAIL=null;if(window.google&&google.accounts&&google.accounts.id){try{google.accounts.id.disableAutoSelect();}catch(e){}}showLogin();}
 function applyUserUI(){var boss=(CURRENT_USER==="__boss__");var chip=document.getElementById("userchip");
  chip.style.display="flex";chip.innerHTML=(boss?ROLE_TH[CURRENT_ROLE]:"👤 "+esc(CURRENT_USER))+'<span class="sw" onclick="logout()">ออก</span>';
@@ -1415,6 +1415,24 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand){
      problems:RG?[]:[],persons_nego:pn,persons_rat:pr,cohort:cohort}};
 }
 
+/* ==== DEEP LINK + EMBED (24 ก.ย. 26) — Pipeline Performance ฝัง Portal เป็นแท็บ "Site Nego" ====
+ * เปิดสาขาได้ 2 ทาง: URL ?site=CJX69-0164&trk=nego|survey  หรือ postMessage {t:"open-site",code,trk}
+ * จากหน้าแม่ (รับเฉพาะ origin เดียวกัน = jeerasaklim.github.io). รอ DATA โหลดเสร็จ (DL_READY) + login ก่อนค่อยเปิด.
+ * สาขาไม่อยู่ในท่อนนั้น → หน้า "รายสาขา" ค้นรหัสให้ + แจ้งว่า Portal ไม่มีงานค้างในท่อนนี้
+ * (ใช้จับสาขาที่ 2 แอปนับไม่ตรงกัน). ไม่มี ?site= และไม่มี message = พฤติกรรมเดิมทุกอย่าง */
+var PENDING_OPEN=null,DL_READY=false;
+(function(){try{var q=new URLSearchParams(location.search);var c=(q.get("site")||"").trim().toUpperCase();if(c)PENDING_OPEN={code:c,trk:q.get("trk")||"nego"};}catch(e){}})();
+function dlToast(msg){var el=document.getElementById("dltoast");if(!el){el=document.createElement("div");el.id="dltoast";el.style.cssText="position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.12);max-width:92vw";document.body.appendChild(el);}el.textContent=msg;el.style.display="block";clearTimeout(el._t);el._t=setTimeout(function(){el.style.display="none";},7000);}
+function deepOpen(code,trk){
+ var sv=(trk==="survey"),bkt=sv?DATA.survey:DATA.nego,tk=sv?"survey":"neg",lab=sv?"รังวัด":"เจรจา";
+ setMode(sv?"survey":"nego");
+ var tasks=(bkt&&bkt.tasks)||[];
+ for(var i=0;i<tasks.length;i++){if(String(tasks[i].code).toUpperCase()===code){openSite(tasks[i].code,bkt,tk);return;}}
+ setMode("site");SEARCH=code;render();if(typeof siteFilter==="function")siteFilter();
+ dlToast("สาขา "+code+" ไม่มีงานค้างในท่อน"+lab+"ของ Portal — แสดงหน้ารายสาขาแทน");}
+function tryPendingOpen(){if(!PENDING_OPEN||!DL_READY||!CURRENT_USER)return;var p=PENDING_OPEN;PENDING_OPEN=null;try{deepOpen(p.code,p.trk);}catch(e){console.warn("[deeplink]",e);}}
+window.addEventListener("message",function(e){if(e.origin!==location.origin)return;var d=e.data;if(!d||d.t!=="open-site"||!d.code)return;PENDING_OPEN={code:String(d.code).trim().toUpperCase(),trk:d.trk||"nego"};tryPendingOpen();});
+
 async function boot(silent){
  if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div></div>';
  try{
@@ -1431,6 +1449,7 @@ async function boot(silent){
    }else{
      if(CURRENT_USER){applyUserUI();fillWho();render();}else{render();showLogin();}
    }
+   DL_READY=true;tryPendingOpen();
  }catch(e){
    if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:60px 20px;color:var(--bad)"><div style="font-size:30px">⚠️</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;margin-top:10px">โหลดข้อมูลไม่สำเร็จ</div><div style="font-size:12px;color:var(--muted);margin-top:6px">'+esc(e.message||e)+'</div><button onclick="boot()" style="margin-top:14px;padding:9px 18px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:9px;font-family:IBM Plex Sans Thai;font-weight:600;cursor:pointer">ลองใหม่</button></div>';
  }
