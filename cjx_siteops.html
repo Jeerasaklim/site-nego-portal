@@ -60,6 +60,7 @@
 .railgap{display:flex;align-items:center;color:var(--faint);font-size:16px;padding:0 3px;flex-shrink:0}
 .railgroup{margin-bottom:16px}
 .railgroup .rail{margin-bottom:0}
+.node.danger{border-color:var(--bad);background:var(--bad-soft)}.node.danger .ni{background:var(--bad);color:#fff}
 .railhd{font-family:"IBM Plex Sans Thai";font-weight:700;font-size:12.5px;color:var(--muted);margin:0 0 8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .railhd .railhds{font-weight:500;font-size:11px;color:var(--faint)}
 .tbar{display:flex;align-items:center;gap:10px;margin-bottom:11px;font-size:13px;color:var(--muted);flex-wrap:wrap}
@@ -510,7 +511,7 @@ function kpis(team){var over=team.filter(function(t){return t.st==="red";}).leng
  var trkStep=(S[3]&&S[3].stp);var trk=team.filter(function(t){return t.step===trkStep;}).length;var wv=team.filter(function(t){return t.waiver;}).length;
  return [{v:team.length-signed-trk,l:"📑 ติดตามเอกสาร / เตรียม"},{v:trk,l:"🔎 ติดตาม อ.1",c:"warn",f:{step:trkStep}},{v:over,l:"🔴 เกิน SLA",c:"bad",f:{k:"red"}},{v:signed,l:"✅ อ.1 ออกแล้ว",c:"good",f:{step:fin}},{v:wv,l:"🏗️ อนุโลม",c:"warn",f:{k:"waiver"}}];}
 function railNodeHtml(ss,i,team){var s=ss[i];var list=team.filter(function(t){return t.step===s.stp;});var ov2=list.filter(function(t){return t.st==="red";}).length;var fin=(s.stp===md().final);
- return '<div class="node'+(ov2>0?' hot':'')+(fin?' fin':'')+(ACTIVE===s.stp?' on':'')+'" data-step="'+esc(s.stp)+'" onclick="setStep('+i+')"><div class="nh"><span class="ni">'+s.ico+'</span><span class="nt">'+s.stp+'</span><span class="nn tnum">'+list.length+'</span></div><div class="ntask">'+s.task+'</div><div class="nsla"><span class="chip">⏱ '+s.sla+'</span>'+(ov2>0?'<span class="chip red">🔴 เกิน '+ov2+'</span>':'')+'</div></div>';}
+ return '<div class="node'+(ov2>0?' hot':'')+((MODE==="nego"&&NEGO_SIDE[s.stp])?' danger':'')+(fin?' fin':'')+(ACTIVE===s.stp?' on':'')+'" data-step="'+esc(s.stp)+'" onclick="setStep('+i+')"><div class="nh"><span class="ni">'+s.ico+'</span><span class="nt">'+s.stp+'</span><span class="nn tnum">'+list.length+'</span></div><div class="ntask">'+s.task+'</div><div class="nsla"><span class="chip">⏱ '+s.sla+'</span>'+(ov2>0?'<span class="chip red">🔴 เกิน '+ov2+'</span>':'')+'</div></div>';}
 function render(){
  document.getElementById("upd").textContent=DATA.updated;
  document.getElementById("belln").textContent=DATA.perf.nego.over+DATA.perf.survey.over+DATA.perf.ratkit.over+DATA.perf.ratkit.reg_over;
