@@ -58,6 +58,10 @@
 .chip{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-weight:600;font-family:"IBM Plex Sans Thai";font-size:10.5px;color:var(--muted)}
 .chip.red{background:var(--bad-soft);color:var(--bad);border-color:transparent}
 .railgap{display:flex;align-items:center;color:var(--faint);font-size:16px;padding:0 3px;flex-shrink:0}
+.railgroup{margin-bottom:16px}
+.railgroup .rail{margin-bottom:0}
+.railhd{font-family:"IBM Plex Sans Thai";font-weight:700;font-size:12.5px;color:var(--muted);margin:0 0 8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.railhd .railhds{font-weight:500;font-size:11px;color:var(--faint)}
 .tbar{display:flex;align-items:center;gap:10px;margin-bottom:11px;font-size:13px;color:var(--muted);flex-wrap:wrap}
 .tbar b{color:var(--ink)}
 .pill{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:3px 12px;font-family:"IBM Plex Sans Thai";font-weight:600;font-size:12px}
@@ -438,6 +442,9 @@ var NEGO_STEPS=[
   {ico:"⚖️",stp:NBX.check,task:"ส่ง Legal แล้ว · รอ Legal Scan สัญญาเข้าระบบ",sla:"3 วันทำการ จากวันส่ง Legal"},
   {ico:"📄",stp:NBX.final,task:"Legal Scan แล้ว · สัญญา Final เตรียมส่งต่อ อ.1",sla:"เตรียมส่งต่อ อ.1"},
   {ico:"✅",stp:NBX.done,task:"ยื่น/เข้าเตรียม อ.1 แล้ว · จบงานเจรจา",sla:"จบท่อนเจรจา"}];
+/* nego rail แยก 2 กลุ่มแบบ App Pipeline: กลุ่มข้าง ๆ (สถานะติดขัด/ยังไม่เดินหน้า) vs ท่อสัญญาที่ไหลไปข้างหน้า
+ * (แค่การจัดแสดง — ไม่แตะ compute/negoBox/perf · กล่อง+ตัวเลข+คลิกกรองเหมือนเดิม) */
+var NEGO_SIDE={};[NBX.pot,NBX.stuck,NBX.hold,NBX.siteex].forEach(function(k){NEGO_SIDE[k]=1;});
 var TITLES={nego:{t:"🤝 ท่อนเจรจา — สัญญา",s:"เจรจา → เสนอ KT → รอเซ็น → รอส่งตรวจ → รอกฎหมายตรวจ → เซ็นแล้ว · (สถานะติดขัด/นำเสนอใหม่ = ตัวกรอง)"},survey:{t:"📐 งานรังวัด — ทีมเจรจา",s:"รอรังวัด → นัดวันรังวัด → รังวัด → ส่งผลให้ก่อสร้าง · SLA รอรังวัด 10 วันทำการ จากวันอนุมัติทำเล"},ratkit:{t:"🏛️ ท่อนรัฐกิจ",s:"ยื่น + ติดตามใบ อ.1 / อนุโลม ตาม SLA"},site:{t:"🏪 รายสาขา — งานค้าง",s:"เลือกสาขา เพื่อดูว่าสาขานั้นมีงานอะไรค้างอยู่บ้าง (รวมทุกท่อน: เจรจา / รังวัด / อ.1 / ทะเบียน) · คลิกเปิดจัดการได้เลย"},boss:{t:"📊 Dashboard",s:"ภาพรวมแต่ละสาย · ตัวเลขหลัก + งานค้างแต่ละขั้น + งานเร่งด่วน · คลิกเปิดดูรายสาขา"},cal:{t:"📅 ปฏิทินงาน — ดูรายวัน",s:"งานครบกำหนดแต่ละวัน · เขียว/เหลือง/แดง ตาม SLA · D-day"},renew:{t:"🔄 ต่ออายุใบอนุญาต",s:"ใบที่ต้องต่อ/จ่ายรายปี — แบบ A นับจากวันเปิดร้าน (เตือน 90 วัน · ซากสัตว์ 60) · แบบ B ปฏิทิน (สุรา 31 ธ.ค. · ป้าย มี.ค. · ที่ดินฯ เม.ย.)"}};
 function esc(s){s=(s==null?"":String(s));return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function md(){return MODE==="ratkit"?DATA.ratkit[RATSUB]:DATA[MODE];}
@@ -502,6 +509,8 @@ function kpis(team){var over=team.filter(function(t){return t.st==="red";}).leng
  if(MODE==="ratkit"&&RATSUB==="reg"){var done=team.filter(function(t){return t.st==="done";}).length;return [{v:team.length,l:"📋 สาขากำลังทำทะเบียน",f:{k:"all"}},{v:over,l:"🔴 เลยเดดไลน์ D-day",c:"bad",f:{k:"red"}},{v:near,l:"🟠 ใกล้ D-day ≤7 วัน",c:"warn",f:{k:"amber"}},{v:done,l:"✅ ทะเบียนครบ",c:"good",f:{step:fin}},{v:team.length-done,l:"ยังไม่จบ",f:{k:"pending"}}];}
  var trkStep=(S[3]&&S[3].stp);var trk=team.filter(function(t){return t.step===trkStep;}).length;var wv=team.filter(function(t){return t.waiver;}).length;
  return [{v:team.length-signed-trk,l:"📑 ติดตามเอกสาร / เตรียม"},{v:trk,l:"🔎 ติดตาม อ.1",c:"warn",f:{step:trkStep}},{v:over,l:"🔴 เกิน SLA",c:"bad",f:{k:"red"}},{v:signed,l:"✅ อ.1 ออกแล้ว",c:"good",f:{step:fin}},{v:wv,l:"🏗️ อนุโลม",c:"warn",f:{k:"waiver"}}];}
+function railNodeHtml(ss,i,team){var s=ss[i];var list=team.filter(function(t){return t.step===s.stp;});var ov2=list.filter(function(t){return t.st==="red";}).length;var fin=(s.stp===md().final);
+ return '<div class="node'+(ov2>0?' hot':'')+(fin?' fin':'')+(ACTIVE===s.stp?' on':'')+'" data-step="'+esc(s.stp)+'" onclick="setStep('+i+')"><div class="nh"><span class="ni">'+s.ico+'</span><span class="nt">'+s.stp+'</span><span class="nn tnum">'+list.length+'</span></div><div class="ntask">'+s.task+'</div><div class="nsla"><span class="chip">⏱ '+s.sla+'</span>'+(ov2>0?'<span class="chip red">🔴 เกิน '+ov2+'</span>':'')+'</div></div>';}
 function render(){
  document.getElementById("upd").textContent=DATA.updated;
  document.getElementById("belln").textContent=DATA.perf.nego.over+DATA.perf.survey.over+DATA.perf.ratkit.over+DATA.perf.ratkit.reg_over;
@@ -521,12 +530,20 @@ function render(){
  b+='<div class="kpis">'+KP.map(function(k,i){var on=(k.f&&((k.f.step&&ACTIVE===k.f.step)||(k.f.k&&k.f.k!=="all"&&KFILT===k.f.k)));return '<div class="kpi '+(k.c||"")+(k.f?" clk":"")+(on?" konn":"")+'"'+(k.f?' onclick="kpiFilter('+i+')"':"")+'><div class="v tnum">'+k.v+'</div><div class="l">'+k.l+'</div></div>';}).join("")+'</div>';
  if(VIEW==="alert"){var ov=tasks.filter(function(t){return t.st==="red";}).sort(bySk);
    b+='<div class="sh">🔔 งานเกิน SLA ('+ov.length+') — ด่วนสุดก่อน</div>'+tableHtml(ov);el.innerHTML=b;return;}
- b+='<div class="rail">';
- for(var i=0;i<ss.length;i++){var s=ss[i];var list=team.filter(function(t){return t.step===s.stp;});var ov2=list.filter(function(t){return t.st==="red";}).length;var fin=(s.stp===md().final);
-   b+='<div class="node'+(ov2>0?' hot':'')+(fin?' fin':'')+(ACTIVE===s.stp?' on':'')+'" data-step="'+esc(s.stp)+'" onclick="setStep('+i+')"><div class="nh"><span class="ni">'+s.ico+'</span><span class="nt">'+s.stp+'</span><span class="nn tnum">'+list.length+'</span></div><div class="ntask">'+s.task+'</div><div class="nsla"><span class="chip">⏱ '+s.sla+'</span>'+(ov2>0?'<span class="chip red">🔴 เกิน '+ov2+'</span>':'')+'</div></div>';
-   if(i<ss.length-1)b+='<div class="railgap">→</div>';
+ if(MODE==="nego"){
+   // เจรจา: แยก 2 กลุ่มแบบ App Pipeline — กลุ่มข้าง ๆ (ไม่ต่อลูกศร) + ท่อสัญญา (ต่อลูกศรไหลไปข้างหน้า)
+   var sideIdx=[],flowIdx=[];for(var i=0;i<ss.length;i++){(NEGO_SIDE[ss[i].stp]?sideIdx:flowIdx).push(i);}
+   b+='<div class="railgroup"><div class="railhd">🚧 ติดขัด / ยังไม่เดินหน้า <span class="railhds">สถานะข้าง ๆ — ยังไม่เข้าท่อสัญญา</span></div><div class="rail">';
+   for(var g=0;g<sideIdx.length;g++)b+=railNodeHtml(ss,sideIdx[g],team);
+   b+='</div></div>';
+   b+='<div class="railgroup"><div class="railhd">📄 ท่อสัญญา <span class="railhds">ไหลไปข้างหน้า → เข้าท่อน อ.1</span></div><div class="rail">';
+   for(var g=0;g<flowIdx.length;g++){b+=railNodeHtml(ss,flowIdx[g],team);if(g<flowIdx.length-1)b+='<div class="railgap">→</div>';}
+   b+='</div></div>';
+ }else{
+   b+='<div class="rail">';
+   for(var i=0;i<ss.length;i++){b+=railNodeHtml(ss,i,team);if(i<ss.length-1)b+='<div class="railgap">→</div>';}
+   b+='</div>';
  }
- b+='</div>';
  b+='<div class="tbar"><input id="q" class="qbox" placeholder="🔍 ค้นหา Site Code / ชื่อสาขา..." value="'+esc(SEARCH)+'" oninput="SEARCH=this.value;filterTable()">'+personFilterHtml()+statusFilterHtml()+'<span class="pill">📋 <b id="cnt">0</b> สาขา</span>'+(ACTIVE?'<span class="chip">step: '+esc(ACTIVE)+'</span><span class="clr" onclick="ACTIVE=null;render()">✕ step</span>':"")+(KFILT?'<span class="chip">กรอง: '+({red:"🔴 เกิน SLA",amber:"🟠 ใกล้ครบ",done:"✅ จบ",pending:"📄 ค้าง",signed:"✅ เซ็นแล้ว",waiver:"🏗️ อนุโลม"}[KFILT]||KFILT)+'</span><span class="clr" onclick="KFILT=\'\';render()">✕</span>':"")+(FCAT?'<span class="chip">สาเหตุ: '+esc(CATLBL[FCAT]||FCAT)+'</span><span class="clr" onclick="FCAT=\'\';render()">✕</span>':"")+(FOWN?'<span class="chip">👤 '+esc(FOWN)+'</span><span class="clr" onclick="FOWN=\'\';render()">✕</span>':"")+'<button class="clr" style="margin-left:auto" onclick="exportCSV()">⬇️ Export CSV</button></div>';
  b+='<div id="tblbox"></div>';
  el.innerHTML=b;filterTable();
