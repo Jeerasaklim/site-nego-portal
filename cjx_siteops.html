@@ -430,10 +430,10 @@ var MODE="nego",RATSUB="o1",PSUB="all",OPENTRK="",VIEW="flow",ACTIVE=null,WH=NOT
 /* ===== โมเดลกล่องเจรจา (nego) — ยกจาก App Pipeline "Site Nego" ให้ครบทุกกล่อง (28 ก.ย.26) =====
  * นับจากชีต SLA (src_sla) เป็นประชากรฐาน · แต่ละสาขาเข้ากล่องเดียว · กล่องข้างเส้น (pot/stuck/hold/siteex)
  * ไม่นับเป็น WIP · main flow = waitkt→sign→send→check→final · done = เข้าท่อน อ.1 (จบเจรจา) */
-var NBX={pot:"Potential (ต้นน้ำ)",stuck:"เจรจา-ติดขัด",hold:"Hold เจรจาราคา",siteex:"ส่งกลับ/นำเสนอใหม่",waitkt:"รอเสนอ KT / ใบปะหน้า",sign:"รอเซ็นสัญญา",send:"รอส่งตรวจสอบสัญญา",check:"รอกฎหมายตรวจสอบสัญญา",final:"สัญญา Final",done:"เข้าท่อน อ.1 (จบเจรจา)"};
+var NBX={pot:"ความเป็นไปได้ต่ำ",stuck:"รอเอกสารหน่วยงานภายนอก",hold:"Hold เจรจา",siteex:"รอนำเสนอใหม่",waitkt:"รอเสนอใบปะหน้าใหม่",sign:"รอเซ็นสัญญา",send:"รอส่งตรวจสอบสัญญา",check:"รอ Legal ตรวจสอบสัญญา",final:"สัญญา Final",done:"ยื่น อ.1"};
 var NEGO_STEPS=[
-  {ico:"🌱",stp:NBX.pot,task:"Potential with cons — ต้นน้ำ ยังไม่เข้า WIP",sla:"ต้นน้ำ (ไม่จับ SLA)"},
-  {ico:"⚠️",stp:NBX.stuck,task:"เจรจา-ติดขัด — ติดปัญหาการเจรจา",sla:"ต้นน้ำ · ติดขัด"},
+  {ico:"🌱",stp:NBX.pot,task:"Potential with cons · ยังไม่เข้า WIP",sla:"ไม่จับ SLA"},
+  {ico:"⚠️",stp:NBX.stuck,task:"รอเอกสารหน่วยงานภายนอก",sla:"—"},
   {ico:"⏸️",stp:NBX.hold,task:"Hold เจรจาราคา — พักเจรจาราคา/เงื่อนไข",sla:"รอปลดล็อก"},
   {ico:"↩️",stp:NBX.siteex,task:"ส่งกลับสรรหา / รอนำเสนอทำเลใหม่ (09/12)",sla:"นอกเส้นทางเจรจาหลัก"},
   {ico:"📋",stp:NBX.waitkt,task:"เสนอ KT ลงนามใบปะหน้า · รอรอบเสนอใหม่",sla:"5/10 วันทำการ จาก max(อนุมัติรถตู้, วันเสนอ KT)"},
@@ -536,7 +536,7 @@ function render(){
    b+='<div class="railgroup"><div class="railhd">🚧 ติดขัด / ยังไม่เดินหน้า <span class="railhds">สถานะข้าง ๆ — ยังไม่เข้าท่อสัญญา</span></div><div class="rail">';
    for(var g=0;g<sideIdx.length;g++)b+=railNodeHtml(ss,sideIdx[g],team);
    b+='</div></div>';
-   b+='<div class="railgroup"><div class="railhd">📄 ท่อสัญญา <span class="railhds">ไหลไปข้างหน้า → เข้าท่อน อ.1</span></div><div class="rail">';
+   b+='<div class="railgroup"><div class="railhd">📄 ท่อสัญญา <span class="railhds">ไหลไปข้างหน้า → ยื่น อ.1</span></div><div class="rail">';
    for(var g=0;g<flowIdx.length;g++){b+=railNodeHtml(ss,flowIdx[g],team);if(g<flowIdx.length-1)b+='<div class="railgap">→</div>';}
    b+='</div></div>';
  }else{
@@ -869,7 +869,7 @@ function perfNeg(p){var b=lensH("📊 มุมงาน");
  b+=lensH("🚨 เร่งด่วน + เสี่ยงเปิดร้านเลื่อน",1);
  var ov=p.persons_nego.slice().filter(function(x){return x.over>0;}).sort(function(a,c){return c.over-a.over;}).slice(0,4);
  b+='<div class="prisk">'+ov.map(function(x){return rr(x.over>=10?"hi":"md",x.nm+" — เกิน SLA","ถือ "+x.hold+" · เซ็นได้ "+x.pct+"%","🔴 "+x.over,"drillPerson(\''+esc(x.nm)+'\')");}).join("")+'</div>';
- b+=pdelay("🏗️",p.nego.over+" ไซต์เกิน SLA เจรจา (วันทำการ)","เกิน SLA = เริ่มก่อสร้าง/ยื่น อ.1 ช้า → ค้างตั้งแต่ต้นน้ำ");
+ b+=pdelay("🏗️",p.nego.over+" ไซต์เกิน SLA เจรจา (วันทำการ)","เกิน SLA = เริ่มก่อสร้าง/ยื่น อ.1 ช้า");
  return b;}
 function perfO1(p){var o=DATA.ratkit.o1.tasks,S=DATA.ratkit.o1.steps;var b=lensH("📊 มุมงาน");
  b+='<div class="kpis k4">'+kpiC(p.ratkit.prep,"📑 ติดตามเอกสาร","pp")+kpiC(p.ratkit.wait,"🔎 ยื่น · ติดตาม อ.1","warn")+kpiC(p.ratkit.got,"✅ อ.1 ออกแล้ว","good")+kpiC(p.ratkit.waiver,"🏗️ อนุโลม","warn")+'</div>';
