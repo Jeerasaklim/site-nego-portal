@@ -93,17 +93,39 @@ function _json(o) {
  *    (จะ sync เองทุก 5 นาที ไม่ต้องทำอะไรอีก)
  */
 var SOURCES = [
-  { tab: "src_nego", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTqFq4mb_2P2bPpfts-C98Dw78uEXaA_Yt1aZFvmx6gplG4r3X1vh8iyqK0NpO7YsP5kApXYKkAW_nZ/pub?output=csv" },
   { tab: "src_sla", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTGFYU9PHIek5uAK_vtT6knOAjSLzOREyffUc0s5fipxbiPK3lzg_bxzxCCS0oZWW-OrvKv8ZWyiGK/pub?output=csv&gid=238646031" },
   { tab: "src_ratown", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQUJHYbkRQeludCnbLks5JVdaZV6hsAnJDhLi5iX6Yqo3-8SWnxZVxPoleVMbTKri8w3Q6zAFjoAvp/pub?output=csv" },
   { tab: "src_reg", url: "https://docs.google.com/spreadsheets/d/18gVIl2NztRw-HUgpSbpjXNO5I_tj7Yuci5Zp9YskCAo/gviz/tq?tqx=out:csv&gid=0" }
 ];
-// ชีตก่อสร้าง 139 คอลัมน์ = ใหญ่มาก → copy เฉพาะที่ใช้ (code,name,prov,open,active,hide)
+// ชีตก่อสร้าง 153 คอลัมน์ = ใหญ่มาก → copy เฉพาะที่ใช้
+//   [2,3,5,137,138,139] = code,name,prov,open,active,hide (เดิม)
+//   [63,142] = permit submit (col63), ส่งเอกสารรัฐกิจ send_ratkit (col142) → norm index 6,7
+//   เพิ่ม 28 ก.ย.26 สำหรับ inO1Prep ของ contract_final (pipe.html CONSTR_COL_PERMIT_SUBMIT=63, SEND_RATKIT=142)
 var CONSTR_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/gviz/tq?tqx=out:csv&gid=1005640128";
-var CONSTR_COLS = [2, 3, 5, 137, 138, 139];
+var CONSTR_COLS = [2, 3, 5, 137, 138, 139, 63, 142];
 // แท็บ "ตารางรับส่งสัญญา กฎหมาย" — milestone contract/legal flow (join ด้วย Site Code col0 ตรงๆ)
 var FLOW_URL = "https://docs.google.com/spreadsheets/d/1cVFBJpP_C6XY5hM15pu71ioQO7JZ7pihRq1FJ-v-k1g/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent("ตารางรับส่งสัญญา กฎหมาย");
 var FLOW_COLS = [0, 11, 12, 16, 8];   // code, ส่งกฎหมาย, กฎหมายส่งกลับ, ส่งเจ้าของลงนาม, เซ็นจริง
+// เจรจา: ดึงจากแท็บ nego ที่ App Pipeline ใช้จริง (1Fnlv8 gid=1549155273 = 16 คนทั้งทีม) — export CSV (ห้าม gviz มันตัดแถว)
+// แท็บนี้มี header 2 แถว (row0 กลุ่ม, row1 ชื่อฟิลด์) data เริ่ม row2 → remap คอลัมน์เป็น layout เดิมที่แอปอ่าน
+var NEGO_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/export?format=csv&gid=1549155273";
+//         old(app)   new(1549155273)         หมายเหตุ
+//  0 Site Code   =  r[0]
+//  1 ชื่อสาขา    =  r[2]
+//  2 จังหวัด     =  r[3]
+//  3 เจรจา owner =  r[4]
+//  4 รูปแบบอนุมัติ= r[37]
+//  5 Main Status =  r[9]  (0-7 มีเลขนำ ชุดเดียวกับเดิม + "เปิดร้านแล้ว"=ไม่มีเลข → แอปข้ามเอง)
+//  8 หมายเหตุ    =  r[10]
+//  9 วันเซ็นสัญญาจริง = r[17]  (เพิ่ม 28 ก.ย.26 — คอลัมน์ "signed" ที่ Pipeline ใช้เป็น sign2 lookup;
+//       ตำแหน่ง 17 ตรงกับ pipe.html SIGN2_COL_SIGNED=17 · เพิ่มท้ายแบบ additive คอลัมน์ 0-8 ไม่ขยับ)
+var NEGO_MAP = { 0:0, 1:2, 2:3, 3:4, 4:37, 5:9, 8:10, 9:17 };
+// เจรจา lookups เพิ่ม (28 ก.ย.26) — logic เจรจาใหม่ใช้ tjLegal (ส่ง/scan สัญญา) + วันเสนอ KT
+//   อยู่ workbook 1Fnlv8 เดียวกับ constr · ใช้ export?format=csv (ห้าม gviz — ตัดแถว) · header row0 data row1
+var TJ_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/export?format=csv&gid=1839838784";
+var TJ_COLS = [0, 11, 12];      // code, วันที่ทีมเจรจาส่ง LG, วันที่ LG Scan (pipe.html TJ_COL_SEND=11, SCAN=12)
+var PNEGO_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/export?format=csv&gid=1464560053";
+var PNEGO_COLS = [0, 25];       // code, วันนำเสนอ KT ใหม่ (pipe.html PNEGO_COL_KT=25)
 
 function syncAll() {
   var ss = SpreadsheetApp.openById(UPDATES_ID);
@@ -121,7 +143,7 @@ function syncAll() {
   });
   try {   // ก่อสร้าง: ตัดเหลือ 6 คอลัมน์ (header + data จากแถว 4)
     var craw = Utilities.parseCsv(UrlFetchApp.fetch(CONSTR_URL, { muteHttpExceptions: true }).getContentText());
-    var out = [["code", "name", "prov", "open", "active", "hide"]];
+    var out = [["code", "name", "prov", "open", "active", "hide", "permit_submit", "send_ratkit"]];
     for (var i = 3; i < craw.length; i++) {
       var r = craw[i]; if (!(r[2] || "").toString().trim()) continue;
       out.push(CONSTR_COLS.map(function (c) { return r[c] || ""; }));
@@ -140,11 +162,44 @@ function syncAll() {
     var df = _diffTab(ss, "src_flow", fout); if (df.length) allDiffs = allDiffs.concat(df);
     _writeRows(ss, "src_flow", fout); log.push("src_flow=" + fout.length);
   } catch (err) { log.push("src_flow FAIL:" + err); }
+  try {   // เจรจา: แท็บ Pipeline (16 คนทั้งทีม) → remap เป็น layout เดิม · ข้าม header 2 แถว
+    var nraw = Utilities.parseCsv(UrlFetchApp.fetch(NEGO_URL, { muteHttpExceptions: true }).getContentText());
+    var nhead = ["Site Code", "ชื่อสาขา", "จังหวัด", "เจรจา", "รูปแบบการอนุมัติ", "Main Status", "Sub status", "อุปสรรค/ปัญหา", "หมายเหตุปัญหา", "วันเซ็นสัญญาจริง"];
+    var nout = [nhead];
+    for (var i = 2; i < nraw.length; i++) {                 // ข้าม row0(กลุ่ม)+row1(ชื่อฟิลด์)
+      var r = nraw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+      var o = ["", "", "", "", "", "", "", "", "", ""];
+      Object.keys(NEGO_MAP).forEach(function (k) { o[k] = r[NEGO_MAP[k]] || ""; });
+      nout.push(o);
+    }
+    var dn = _diffTab(ss, "src_nego", nout); if (dn.length) allDiffs = allDiffs.concat(dn);
+    _writeRows(ss, "src_nego", nout); log.push("src_nego=" + nout.length);
+  } catch (err) { log.push("src_nego FAIL:" + err); }
+  try {   // tjLegal: ส่งเอกสารสัญญาให้ LG / LG Scan → [code, send, scan] (join ด้วย Site Code col0)
+    var traw = Utilities.parseCsv(UrlFetchApp.fetch(TJ_URL, { muteHttpExceptions: true }).getContentText());
+    var tout = [["code", "send_legal", "legal_scan"]];
+    for (var i = 1; i < traw.length; i++) {
+      var r = traw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+      tout.push(TJ_COLS.map(function (c) { return r[c] || ""; }));
+    }
+    var dt = _diffTab(ss, "src_tj", tout); if (dt.length) allDiffs = allDiffs.concat(dt);
+    _writeRows(ss, "src_tj", tout); log.push("src_tj=" + tout.length);
+  } catch (err) { log.push("src_tj FAIL:" + err); }
+  try {   // pnegoKt: วันนำเสนอ KT ใหม่ → [code, kt]
+    var praw = Utilities.parseCsv(UrlFetchApp.fetch(PNEGO_URL, { muteHttpExceptions: true }).getContentText());
+    var pout = [["code", "kt_date"]];
+    for (var i = 1; i < praw.length; i++) {
+      var r = praw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+      pout.push(PNEGO_COLS.map(function (c) { return r[c] || ""; }));
+    }
+    var dp = _diffTab(ss, "src_pnego", pout); if (dp.length) allDiffs = allDiffs.concat(dp);
+    _writeRows(ss, "src_pnego", pout); log.push("src_pnego=" + pout.length);
+  } catch (err) { log.push("src_pnego FAIL:" + err); }
   try {   // ชีต "0. CJx Store Document_New" (private → openById) — ดึง 3 แท็บ: ใบอนุญาต + ภาษีป้าย + ภาษีที่ดิน
     var LIC_ID = "1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ";
     var lss = SpreadsheetApp.openById(LIC_ID);
     var ltz = ss.getSpreadsheetTimeZone();
-    [["src_lic", "ใบอนุญาต"], ["src_tax_sign", "ภาษีป้าย@2569"], ["src_tax_land", "ภาษีที่ดินและสิ่งปลูกสร้าง@2569"]].forEach(function (pair) {
+    [["src_lic", "ใบอนุญาต"], ["src_renew", "ต่ออายุใบอนุญาต"], ["src_tax_sign", "ภาษีป้าย@2569"], ["src_tax_land", "ภาษีที่ดินและสิ่งปลูกสร้าง@2569"]].forEach(function (pair) {
       try {
         var sh = lss.getSheetByName(pair[1]);
         if (!sh) { log.push(pair[0] + " NO-TAB"); return; }
