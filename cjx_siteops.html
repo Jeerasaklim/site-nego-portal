@@ -1418,6 +1418,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  var svyT=[];
  for(i=hr+1;i<sla.length;i++){var r=sla[i];var c=cc(r,0);if(!c||opened[c])continue;
    var se8=cc(r,8),se9=cc(r,9);if((se8+" "+se9).indexOf("ยกเลิก")>=0)continue;      // ตัดที่ยกเลิก
+   var _svb=negoBox(r);if(_svb===NBX.siteex||_svb===NBX.hold||_svb===NBX.pot||_svb===NBX.stuck)continue; // WIP gate: ตัดสาขาที่ยังค้างเจรจา (potential/stuck/hold/site-ex) ให้นับตรง base ของ Pipeline (:3144-3146)
    var vanRes=cc(r,73),apprD=pdate(cc(r,11)),svD=pdate(cc(r,12)),sentD=pdate(cc(r,13))||pdate(cc(r,56));
    var isAppr=(vanRes.indexOf("Approve")>=0);   // อนุมัติรถตู้จริง (ไม่ใช่แค่ขึ้นรถตู้/มีวันพิจารณาทำเล)
    var surveyed=!!svD||!!svy_surveyed[c],sent=!!sentD||!!svy_sent[c],appointed=!!svy_appoint[c];
