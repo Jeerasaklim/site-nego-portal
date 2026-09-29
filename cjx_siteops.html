@@ -599,8 +599,20 @@ function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var 
  var b='<div class="dhead"><button class="x" onclick="closeD()">✕</button><div class="dcode">'+esc(t.code)+'</div><div class="dnm">'+esc(t.name)+' · '+esc(t.prov)+'</div></div><div class="dbody">';
  b+='<div class="slabox'+(ok?" ok":"")+'"><span class="ico">'+(t.st==="red"?"🔴":(t.st==="done"?"✅":"🟢"))+'</span><div><div class="big">'+esc(t.slatxt)+'</div><div class="s2">SLA ขั้นนี้: '+st.sla+'</div></div></div>';
  b+='<div class="dstep-h">ขั้นตอนงาน (flow)</div><div class="stepper">';
- for(var j=0;j<ss.length;j++){var cls=(j<ci?"done":(j===ci?"active":"pending"));var bul=(j<ci?"✓":(j+1));
-   b+='<div class="snode '+cls+'"><span class="sbullet">'+bul+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+(j===ci?"👉 "+ss[j].task:ss[j].task)+'</div></div></div>';}
+ var isNego=ss.length&&NEGO_SIDE[ss[0].stp];
+ if(isNego){
+   var pstart=0;while(pstart<ss.length&&NEGO_SIDE[ss[pstart].stp])pstart++;   // กล่องแรกของท่อสัญญา (ข้าม 4 กล่องทางแยก)
+   if(NEGO_SIDE[t.step]){                                                     // สาขาติดขัด/ยังไม่เดินหน้า = โชว์สถานะนั้นอย่างเดียว ไม่ติ๊กว่าผ่านขั้นอื่น
+     b+='<div class="snode active"><span class="sbullet">•</span><div class="sc"><div class="st">'+ss[ci].ico+' '+ss[ci].stp+'</div><div class="sd">👉 '+ss[ci].task+' · ยังไม่เข้าท่อสัญญา</div></div></div>';
+     for(var j=pstart;j<ss.length;j++)b+='<div class="snode pending"><span class="sbullet">'+(j-pstart+1)+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+ss[j].task+'</div></div></div>';
+   }else{                                                                     // สาขาอยู่ในท่อสัญญา = โชว์เฉพาะ 6 ขั้นสัญญา ติ๊ก ✓ เท่าที่ผ่านจริง
+     for(var j=pstart;j<ss.length;j++){var cls=(j<ci?"done":(j===ci?"active":"pending"));var bul=(j<ci?"✓":(j-pstart+1));
+       b+='<div class="snode '+cls+'"><span class="sbullet">'+bul+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+(j===ci?"👉 "+ss[j].task:ss[j].task)+'</div></div></div>';}
+   }
+ }else{
+   for(var j=0;j<ss.length;j++){var cls=(j<ci?"done":(j===ci?"active":"pending"));var bul=(j<ci?"✓":(j+1));
+     b+='<div class="snode '+cls+'"><span class="sbullet">'+bul+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+(j===ci?"👉 "+ss[j].task:ss[j].task)+'</div></div></div>';}
+ }
  b+='</div>';
  if(t.checklist){var cdone=t.checklist.filter(function(x){return x.ok;}).length;
    b+='<div class="dstep-h">📑 เอกสารทั้งหมด ('+cdone+'/'+t.checklist.length+' ใบ)</div><div class="cklist">';
