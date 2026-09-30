@@ -204,6 +204,7 @@
 - **ส่งออก CSV** — ตารางปัจจุบัน (`exportCSV()` `:1079`) และหน้า performance (`exportPerf()` `:1091`)
 - **Deep link + ฝังเป็นแท็บ** (`:1418-1434`) — เปิดสาขาตรงด้วย `?site=<code>&trk=nego|survey` หรือ `postMessage` จากแอปแม่ · **รับเฉพาะ origin เดียวกัน** · หาไม่เจอในท่อนนั้นจะเด้งไปหน้ารายสาขาพร้อมแจ้งเหตุ ไม่เงียบ
 - **Auto-refresh ทุก 5 นาที** — เว้นตอนเปิด drawer ค้างไว้ (`:1458`)
+- **Boot ทน backend แกว่ง (แก้ 30 ก.ย. 26):** Apps Script proxy throttle เป็นช่วง (ตอบ 404 สลับ 200, 18-45s) · boot จึง (1) `getTab/getUpdates` retry 8 รอบ backoff+jitter จนได้ 200 (กันได้ข้อมูลว่าง) (2) `_runLimited` ยิงทีละ 4 แท็บ ไม่ใช่ 12 พร้อมกัน (ลดโหลดที่ทำให้ throttle) (3) แสดง progress "โหลดแล้ว X/12" · เดิมยิง Promise.all 12 พร้อมกัน = ค้างหมุนเวลา backend อืด · รากปัญหา (GAS ช้า) ยังอยู่ → ทางถาวรคือเสิร์ฟนอก GAS [[gas-serving-speed-floor]]
 - **Dark mode** ตามระบบ · **responsive** มีเมนู hamburger บนจอเล็ก
 
 ### 4.5 เอกสารประกอบที่มาพร้อมแอป
