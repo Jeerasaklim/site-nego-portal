@@ -1180,9 +1180,15 @@ async function getFlow(){  /* milestone กฎหมาย normalize → [code,s
  try{var r=await fetch(CEN+"src_flow");if(r.ok){var rows=csv(await r.text());if(rows.length>1&&rows[0].length>=5)return rows;}}catch(e){}
  var raw=await getCsv("https://docs.google.com/spreadsheets/d/1cVFBJpP_C6XY5hM15pu71ioQO7JZ7pihRq1FJ-v-k1g/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent("ตารางรับส่งสัญญา กฎหมาย"));
  return [["code","send_legal","legal_back","sign_owner","signed"]].concat(raw.slice(1).map(function(x){return [cc(x,0),cc(x,11),cc(x,12),cc(x,16),cc(x,8)];}));}
-async function getUpdates(){for(var t=0;t<3;t++){try{var r=await fetch(WRITE_URL+"?key="+WSECRET);if(!r.ok)continue;var j=JSON.parse(await r.text());return (j.rows||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});}catch(e){}}return [];}
-/* ดึงข้อมูลชีตกลางผ่าน Apps Script (script.google.com) — เลี่ยง CORS ของ docs.google.com บน GitHub Pages */
-async function getTab(tab){for(var t=0;t<3;t++){try{var r=await fetch(WRITE_URL+"?tab="+encodeURIComponent(tab));if(!r.ok)continue;var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}catch(e){}}return [];}
+function _sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+var _bootDone=0,_bootTotal=0;
+function _bootProg(){var el=document.getElementById("bootprog");if(el)el.textContent="โหลดแล้ว "+_bootDone+"/"+_bootTotal+" แท็บ… (ถ้าชีตอืดจะรอ retry ให้อัตโนมัติ)";}
+/* backend (Apps Script) แกว่ง/throttle เป็นช่วง → retry แบบหน่วงเวลา (backoff+jitter) จนได้ 200 · กัน boot ค้าง/ได้ข้อมูลว่าง */
+async function getUpdates(){for(var t=0;t<8;t++){try{var r=await fetch(WRITE_URL+"?key="+WSECRET);if(r.ok){var j=JSON.parse(await r.text());return (j.rows||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});}}catch(e){}await _sleep(700*(t+1)+Math.floor(Math.random()*700));}return [];}
+/* ดึงข้อมูลชีตกลางผ่าน Apps Script (script.google.com) — เลี่ยง CORS docs.google.com บน GitHub Pages · retry+backoff กัน backend throttle */
+async function getTab(tab){for(var t=0;t<8;t++){try{var r=await fetch(WRITE_URL+"?tab="+encodeURIComponent(tab));if(r.ok){var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}}catch(e){}await _sleep(700*(t+1)+Math.floor(Math.random()*700));}return [];}
+/* ยิงทีละกลุ่มเล็ก (จำกัด concurrency) แทนยิง 12 พร้อมกัน — ลดโหลดที่ทำให้ Apps Script throttle · คงลำดับผลลัพธ์ */
+async function _runLimited(jobs,limit){var results=new Array(jobs.length);var i=0;_bootDone=0;_bootTotal=jobs.length;async function w(){while(i<jobs.length){var idx=i++;results[idx]=await jobs[idx]();_bootDone++;_bootProg();}}var ws=[];for(var k=0;k<limit;k++)ws.push(w());await Promise.all(ws);return results;}
 
 function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego){
  // ---- SLA sheet (อ.1) ----
@@ -1505,9 +1511,9 @@ function tryPendingOpen(){if(!PENDING_OPEN||!DL_READY||!CURRENT_USER)return;var 
 window.addEventListener("message",function(e){if(e.origin!==location.origin)return;var d=e.data;if(!d||d.t!=="open-site"||!d.code)return;PENDING_OPEN={code:String(d.code).trim().toUpperCase(),trk:d.trk||"nego"};tryPendingOpen();});
 
 async function boot(silent){
- if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div></div>';
+ if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div><div id="bootprog" style="font-size:12px;margin-top:10px;color:var(--faint)"></div></div>';
  try{
-   var res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic"),getTab("src_tax_sign"),getTab("src_tax_land"),getTab("src_tj"),getTab("src_pnego")]);
+   var res=await _runLimited([function(){return getTab("src_nego");},function(){return getTab("src_sla");},function(){return getTab("src_reg");},function(){return getTab("src_constr");},function(){return getTab("src_ratown");},function(){return getUpdates();},function(){return getTab("src_flow");},function(){return getTab("src_lic");},function(){return getTab("src_tax_sign");},function(){return getTab("src_tax_land");},function(){return getTab("src_tj");},function(){return getTab("src_pnego");}],4);
    DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7],res[8],res[9],res[10],res[11]);
    // problems (คอขวด) = per step count
    var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});
