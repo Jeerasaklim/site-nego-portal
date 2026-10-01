@@ -1254,7 +1254,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    if(box===NBX.check)return {ag:(function(){var d=pdate(nSendLg(r));return d?wdH(d,TODAY):null;})(),tgt:3};
    return {ag:null,tgt:null};}
  // --- build tasks บนประชากร "approved" (อนุมัติรถตู้ · ตัดเปิด/ยกเลิก) ---
- var negT=[],nowner={},nsigned={},nTotal=0,nSignedAll=0,nWip=0,nFinal=0;
+ var negT=[],nowner={},nsigned={},nTotal=0,nSignedAll=0,nWip=0,nFinal=0,signedCodes={};
  for(var nk=hr+1;nk<sla.length;nk++){var r=sla[nk];var c=cc(r,0);if(!c)continue;
    var exp=cc(r,8);
    if(exp==="ขึ้นรถตู้วันนี้"||exp==="Reject")continue;              // G1 (:3114)
@@ -1265,6 +1265,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    var box=negoBox(r);
    var own=negOwnL[c]||cc(r,52)||cc(r,4)||"(ไม่ระบุ)";
    var isSg=nSigned(r);if(isSg)nSignedAll++;
+   if(isSg)signedCodes[c]={name:cc(r,2)||cc(r,4)||c,prov:cc(r,3)};   // ชุด "เซ็นแล้ว" (เกณฑ์ nSigned เดียวกับ nego/Pipeline) → ใช้เป็นประชากรเข้าท่อน อ.1
    nowner[own]=(nowner[own]||0)+1;if(isSg)nsigned[own]=(nsigned[own]||0)+1;
    var inWip=(box!==NBX.siteex&&box!==NBX.hold&&box!==NBX.pot&&box!==NBX.stuck);
    if(inWip){nWip++;if(box===NBX.done)nFinal++;}
@@ -1294,7 +1295,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  function o1cur(c){var rr=0;if(SSTP[c]&&A_ORD[SSTP[c]]!=null)rr=Math.max(rr,A_ORD[SSTP[c]]);if(SSUB[c])rr=Math.max(rr,A_ORD[A_TRK]);if(SGOT[c])rr=A_ORD[A_OK];return rr;}
  function o1step(c){var rr=o1cur(c);for(var s in A_ORD)if(A_ORD[s]==rr)return s;return A_DOC;}
  var cand={};
- for(k=0;k<negRows.length;k++){var r=negRows[k];var c3=cc(r,0);if(gm(r)=="3"||gm(r)=="4")cand[c3]={name:cc(r,1),prov:cc(r,2)};}
+ for(var sc in signedCodes)cand[sc]={name:signedCodes[sc].name,prov:signedCodes[sc].prov};  // เข้าท่อน อ.1 = เซ็นแล้ว (เกณฑ์เดียวกับ nego/Pipeline) ไม่ใช่ Main Status 3/4 อย่างเดียว
  for(var cs in SSUB)if(!cand[cs])cand[cs]={name:cname[cs]||cs,prov:rkProv[cs]||cprov[cs]||""};
  for(var cgg in SGOT)if(!cand[cgg])cand[cgg]={name:cname[cgg]||cgg,prov:rkProv[cgg]||cprov[cgg]||""};
  var ratT=[];
