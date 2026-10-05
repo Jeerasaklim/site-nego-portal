@@ -458,12 +458,14 @@ function roleKind(role){var r=(role||"").toLowerCase();
  if(r.indexOf("member")>=0)return "member";
  if(r.indexOf("governance")>=0||r.indexOf("รัฐกิจ")>=0||r.indexOf("gov")>=0)return "gov";
  if(r.indexOf("admin")>=0)return "admin";
+ if(r.indexOf("managing")>=0||r.indexOf("director")>=0||r==="md"||r.indexOf("กรรมการผู้จัดการ")>=0||r.indexOf("ผู้จัดการใหญ่")>=0)return "md"; /* Managing Director = เห็นทุกอย่าง · ดูอย่างเดียว */
  return "boss";}  /* HQ / Head / อื่นๆ = เห็นทุกอย่าง ทำได้ทุกท่อน (แต่ไม่มี setting) */
 function canAct(){   /* สิทธิ์ตอบผล/เขียนกลับ ในโหมดปัจจุบัน */
+ if(CURRENT_ROLE==="md")return false;         // Managing Director = ดูอย่างเดียว ทุกท่อน
  if(CURRENT_ROLE==="member")return true;      // งานตัวเอง
  if(CURRENT_ROLE==="gov")return MODE==="ratkit";  // เฉพาะ อ.1 + ทะเบียน
  return true;}                                 // admin / boss(HQ,Head) = ทุกท่อน
-var ROLE_TH={member:"👤 พนักงาน",gov:"🏛️ Governance",admin:"🛡️ Admin",boss:"👑 หัวหน้า"};
+var ROLE_TH={member:"👤 พนักงาน",gov:"🏛️ Governance",admin:"🛡️ Admin",boss:"👑 หัวหน้า",md:"👑 Managing Director"};
 function curUser(){if(CURRENT_USER==="__boss__")return (document.getElementById("who")||{}).value||"__all__";return CURRENT_USER||"__all__";}
 function showLogin(){var el=document.getElementById("login");
  if(GOOGLE_CLIENT_ID){
@@ -592,7 +594,7 @@ function setV(v){VIEW=v;KFILT="";if(MODE==="boss")MODE="nego";render();}
 function findTask(code){var all=md().tasks;for(var i=0;i<all.length;i++)if(all[i].code===code)return all[i];return null;}
 function setSub(s){RATSUB=s;VIEW="flow";ACTIVE=null;KFILT="";SEARCH="";FSTAT="";FCAT="";FOWN="";RNLIC="";RNPROV="";RNVIEW="lic";RNSITE="";fillWho();render();}
 function ratSub(){var rn=(DATA.renew&&DATA.renew.tasks)?DATA.renew.tasks.length:0;return '<div class="seg" style="display:inline-flex;margin-bottom:16px"><button class="'+(RATSUB==="o1"?"on":"")+'" onclick="setSub(\'o1\')">🎫 งาน อ.1 ('+DATA.ratkit.o1.tasks.length+')</button><button class="'+(RATSUB==="reg"?"on":"")+'" onclick="setSub(\'reg\')">📋 งานทะเบียน ('+DATA.ratkit.reg.tasks.length+')</button><button class="'+(RATSUB==="renew"?"on":"")+'" onclick="setSub(\'renew\')">🔄 ต่ออายุใบอนุญาต ('+rn+')</button></div>';}
-function canActTrk(trk){if(CURRENT_ROLE==="member")return true;if(CURRENT_ROLE==="gov")return (trk==="o1"||trk==="reg");return true;}
+function canActTrk(trk){if(CURRENT_ROLE==="md")return false;if(CURRENT_ROLE==="member")return true;if(CURRENT_ROLE==="gov")return (trk==="o1"||trk==="reg");return true;}
 function calOpen(trk,code){var bkt=(trk==="neg")?DATA.nego:(trk==="o1"?DATA.ratkit.o1:DATA.ratkit.reg);openSite(code,bkt,trk);}
 function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var _q=0;_q<_all.length;_q++)if(_all[_q].code===code){t=_all[_q];break;}if(!t)return;var ss=bkt.steps;var ci=0;for(var k=0;k<ss.length;k++)if(ss[k].stp===t.step)ci=k;var st=ss[ci]||{sla:"",task:""};var _act=(typeof trk!=="undefined")?canActTrk(trk):canAct();
  var ok=(t.st!=="red");
@@ -629,7 +631,7 @@ function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var 
    b+='<button onclick="saveNote(\''+esc(t.code)+'\',\'บันทึกโน้ต\')">📝 บันทึกโน้ต / ปัญหา</button><button onclick="saveNote(\''+esc(t.code)+'\',\'ส่งต่อทีม\')">🕐 ส่งต่อขั้นถัดไป</button></div>';
    b+='<input class="note-in" id="notebox" placeholder="รายละเอียด / เหตุผลที่ค้าง...">';
  }else{
-   b+='<div class="act-h">🔒 สิทธิ์ดูอย่างเดียว (ท่อนนี้)</div><div class="act-sub">'+ROLE_TH[CURRENT_ROLE]+' แก้/ตอบผลได้เฉพาะ อ.1 + ทะเบียน — ท่อนเจรจาดูได้อย่างเดียว</div>';
+   b+='<div class="act-h">🔒 สิทธิ์ดูอย่างเดียว'+(CURRENT_ROLE==="md"?"":" (ท่อนนี้)")+'</div><div class="act-sub">'+ROLE_TH[CURRENT_ROLE]+(CURRENT_ROLE==="md"?' — ดูได้ทุกท่อน (อย่างเดียว ไม่แก้ข้อมูล)':' แก้/ตอบผลได้เฉพาะ อ.1 + ทะเบียน — ท่อนเจรจาดูได้อย่างเดียว')+'</div>';
  }
  b+='</div>';
  document.getElementById("drawer").innerHTML=b;document.getElementById("drawer").classList.add("on");document.getElementById("scrim").classList.add("on");}
