@@ -150,10 +150,11 @@
 | ในท่อนเจรจา | `sign_contract` | รอเซ็นสัญญา (ยังไม่มีวันเซ็น) |
 | ในท่อนเจรจา | `send_check` | เซ็นแล้ว · ยังไม่ส่ง LG |
 | ในท่อนเจรจา | `check_contract` | ส่ง LG แล้ว · รอ LG scan |
-| ในท่อนเจรจา | `contract_final` | LG scan แล้ว · ยังไม่เข้าเตรียม อ.1 |
-| ออกจากท่อน | `confirm_o1` | มีวันยื่น/ได้ อ.1 แล้ว = ไป อ.1 |
+| ในท่อนเจรจา | `contract_final` (สัญญา Final) | LG scan แล้ว = **จบท่อนเจรจา** · เป็นกล่องจบของแท็บเจรจา |
 
-- ยืนยันสมการ (SPEC §4): `stage_group = wait_kt + sign_contract + send_check + check_contract + contract_final`
+- **🔄 แก้ 6 ต.ค. 26 (จี): "ยื่น อ.1" ไม่ใช่กล่องในท่อนเจรจาแล้ว** — งานเจรจาจบที่ **สัญญา Final** · สาขาที่ยื่น อ.1 แล้ว (`!nNoO1`) **พับเข้ากล่อง สัญญา Final** (negoBox `:1244,:1247` → `NBX.final`; เดิมเป็น `NBX.done`="ยื่น อ.1") เพราะยื่น อ.1 = **งานท่อนรัฐกิจ** แสดงในแท็บ อ.1 ไม่ใช่แท็บเจรจา · ผล: funnel เจรจา = 9 กล่อง จบที่ "สัญญา Final" (ไม่มีกล่อง "ยื่น อ.1" อีก) · `NEGO_STEPS` ตัดกล่อง done ออก (`:445`)
+- **งานเจรจาค้าง (pending)** = ทุกกล่อง **ยกเว้น** `สัญญา Final` (จบ) + `รอนำเสนอใหม่/site_ex` (ตีกลับสรรหา) · **รวม** potential/stuck/hold (= งานเจรจาที่มีปัญหา ตามที่จีเคาะ) · `:509,:1282` · ≈ 169 ณ 6 ต.ค.
+- ยืนยันสมการ (SPEC §4): `stage_group = wait_kt + sign_contract + send_check + check_contract + contract_final` (contract_final รวม confirm_o1 เดิม)
 - SLA: วันทำการ (หยุด Sat/Sun + วันหยุด CJ) · wait_kt/sign_contract target = 10 วันถ้า "Approved with condition" ไม่งั้น 5 · send_check 3 วันจากวันเซ็น · check_contract 3 วันจากวันส่ง LG (`SPEC.md` §4)
 - **Drawer flow รายสาขา (แก้ 29 ก.ย. 26 `:602`):** stepper ในกล่องรายละเอียดแสดงตาม "กลุ่ม" ไม่เรียง 10 กล่องเป็นเส้นตรง — สาขาในท่อสัญญา (wait_kt→ยื่น อ.1) โชว์เฉพาะ 6 ขั้นสัญญา ติ๊ก ✓ เท่าที่ผ่านจริง · สาขาติดขัด (potential/stuck/hold/site-ex ∈ `NEGO_SIDE`) โชว์สถานะติดขัดเป็น current + ท่อสัญญา "ยังไม่เริ่ม" (ไม่ติ๊ก ✓) · เดิมเรียงเส้นตรงแล้วติ๊ก ✓ 4 กล่องทางแยกทำให้ดูเหมือนไหลผ่าน pot→stuck→hold→siteex = มั่ว
 
@@ -205,7 +206,12 @@
 - **ส่งออก CSV** — ตารางปัจจุบัน (`exportCSV()` `:1079`) และหน้า performance (`exportPerf()` `:1091`)
 - **Deep link + ฝังเป็นแท็บ** (`:1418-1434`) — เปิดสาขาตรงด้วย `?site=<code>&trk=nego|survey` หรือ `postMessage` จากแอปแม่ · **รับเฉพาะ origin เดียวกัน** · หาไม่เจอในท่อนนั้นจะเด้งไปหน้ารายสาขาพร้อมแจ้งเหตุ ไม่เงียบ
 - **Auto-refresh ทุก 5 นาที** — เว้นตอนเปิด drawer ค้างไว้ (`:1458`)
-- **Boot ทน backend แกว่ง + เร็ว (แก้ 30 ก.ย. + 6 ต.ค. 26):** Apps Script ส่งคำตอบพลาดสุ่ม ~40% (404) และ 404 ช้า 12-32s (สคริปต์รันปกติ — เช็ก Executions ไม่ใช่ quota) · boot: (1) **ยิง 12 แท็บพร้อมกัน** (`_runLimited(.,12)` — เร็ว ~15s · ⚠️ ห้ามลด concurrency: เคยลองยิงทีละ 3 = ช้า ~120s และไม่ลด fail เลย) (2) `_fetchTO` fetch+timeout 10s → เจอ 404 ช้า ตัด retry ทันที (3) retry 16 รอบ backoff+jitter (4) **guard: ยิงซ้ำแท็บที่ว่าง 5 passes · ถ้า src_nego/src_sla ยังว่าง = โชว์ปุ่ม "ลองใหม่" ไม่ render ข้อมูลพร่อง** (กันเคส nego 158) (5) progress "โหลดแล้ว X/12" · **เทสต์ 6 ต.ค.: ~15-37s · nego 302/survey 163/o1 134/reg 40 นิ่ง+ครบ** · รากปัญหา (GAS unreliable) ยังอยู่ → ถาวรคือเสิร์ฟนอก GAS [[gas-serving-speed-floor]]
+- **Boot ทน backend แกว่ง + เร็ว (รื้อใหม่ 6 ต.ค. 26):** Apps Script ส่งคำตอบพลาดสุ่ม ~40% (404) และ 404 ช้า 12-32s (สคริปต์รันปกติ — เช็ก Executions ไม่ใช่ quota) · boot ลำดับ:
+  1. **`getAll()` ยิงครั้งเดียวได้ทุกแท็บ** (`WRITE_URL?all=1` — ต้องมี handler `?all` ใน `Code.gs` deploy ใน GAS · เร็วสุด ~10s + เลี่ยงโดน 404 ถึง 12 เท่า) · `:1187`
+  2. **fail-fast:** ถ้า `?all` ได้ JSON 200 แต่ไม่มี `tabs` (= handler ยังไม่ deploy) → **เลิกทันที ไม่วน** ไป fallback (เดิมวน 5 รอบ = เสียฟรี ~50s ค้างหน้าโหลด) · retry เฉพาะ network error/non-200 (3 รอบ)
+  3. **fallback: `Promise.all` ยิง 12 แท็บพร้อมกัน** (`getTab×12` · แต่ละแท็บ retry 4 รอบ 1.2s · ~25-35s) · ⚠️ ห้ามลด concurrency เป็นทีละ 3 (เคยลอง = ช้า ~120s + storm 60-84 คำขอ เพราะ abort 10s ไปตัดคำขอที่กำลังจะสำเร็จ) และ **ห้ามใส่ timeout/abort สั้น** (GAS redirect ช้า 8-15s ปกติ)
+  4. **guard:** ถ้า `src_nego`/`src_sla` ยังว่างหลังโหลด → โชว์ปุ่ม "ลองใหม่" ไม่ render ข้อมูลพร่อง (กันเคส nego 158)
+  - **เทสต์ 6 ต.ค. (ยังไม่ deploy `?all`):** โหลดผ่าน fallback ~25s · nego 302/survey 163/o1 134/reg 40 นิ่ง+ครบ · **เมื่อ deploy `?all` แล้วจะเหลือ ~10s** · รากปัญหา (GAS unreliable) ยังอยู่ → ถาวรคือเสิร์ฟนอก GAS [[gas-serving-speed-floor]]
 - **Dark mode** ตามระบบ · **responsive** มีเมนู hamburger บนจอเล็ก
 
 ### 4.5 เอกสารประกอบที่มาพร้อมแอป
