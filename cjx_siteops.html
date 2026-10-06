@@ -529,6 +529,7 @@ function render(){
  var b="";
  if(MODE==="ratkit")b+=ratSub();
  var KP=kpis(team);window._kp=KP;
+ if(MODE!=="nego")  // เจรจา: ซ่อนแถว KPI — ข้อมูลซ้ำกับ funnel/rail อยู่แล้ว (จี 6 ต.ค.)
  b+='<div class="kpis">'+KP.map(function(k,i){var on=(k.f&&((k.f.step&&ACTIVE===k.f.step)||(k.f.k&&k.f.k!=="all"&&KFILT===k.f.k)));return '<div class="kpi '+(k.c||"")+(k.f?" clk":"")+(on?" konn":"")+'"'+(k.f?' onclick="kpiFilter('+i+')"':"")+'><div class="v tnum">'+k.v+'</div><div class="l">'+k.l+'</div></div>';}).join("")+'</div>';
  if(VIEW==="alert"){var ov=tasks.filter(function(t){return t.st==="red";}).sort(bySk);
    b+='<div class="sh">🔔 งานเกิน SLA ('+ov.length+') — ด่วนสุดก่อน</div>'+tableHtml(ov);el.innerHTML=b;return;}
@@ -538,7 +539,7 @@ function render(){
    b+='<div class="railgroup"><div class="railhd">🚧 ติดขัด / ยังไม่เดินหน้า <span class="railhds">สถานะข้าง ๆ — ยังไม่เข้าท่อสัญญา</span></div><div class="rail">';
    for(var g=0;g<sideIdx.length;g++)b+=railNodeHtml(ss,sideIdx[g],team);
    b+='</div></div>';
-   b+='<div class="railgroup"><div class="railhd">📄 ท่อสัญญา <span class="railhds">ไหลไปข้างหน้า → ยื่น อ.1</span></div><div class="rail">';
+   b+='<div class="railgroup"><div class="railhd">📄 ท่อสัญญา <span class="railhds">ไหลไปข้างหน้า → สัญญา Final (จบเจรจา)</span></div><div class="rail">';
    for(var g=0;g<flowIdx.length;g++){b+=railNodeHtml(ss,flowIdx[g],team);if(g<flowIdx.length-1)b+='<div class="railgap">→</div>';}
    b+='</div></div>';
  }else{
