@@ -1232,7 +1232,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  function nspace(s){return (s||"").replace(/\s+/g,"");}
  function nStat(r){return cc(r,53)||(nego2[cc(r,0)]||"");}                                 // :3059
  function nHold(r){return nspace(cc(r,6))===nspace("6.1 Hold เจรจาราคา");}                 // :3060
- function nSigned(r){return cc(r,26)!==""||(sign2[cc(r,0)]||"")!==""||!!nego_signed[cc(r,0)];} // :3061 + overlay
+ function nSigned(r){var c=cc(r,0);var _s=nStat(r);return cc(r,26)!==""||(sign2[c]||"")!==""||!!nego_signed[c]||_s.indexOf("3.")===0||_s.indexOf("4.")===0||_s==="เปิดร้านแล้ว"||!!opened[c];} // เซ็นแล้ว = วันเซ็น OR สถานะ 3./4./เปิดแล้ว (กติกา 28 ก.ย. signed-rule-both-apps) :3061
  function nNoO1(r){return cc(r,33)===""&&cc(r,34)==="";}                                    // :3169
  function nSendLg(r){var c=cc(r,0);return (tjSend[c]||"")||cc(r,29);}                       // :3066
  function nScanLg(r){var c=cc(r,0);return (tjScan[c]||"")||cc(r,30);}                       // :3067
