@@ -441,8 +441,7 @@ var NEGO_STEPS=[
   {ico:"✍️",stp:NBX.sign,task:"KT อนุมัติแล้ว · รอเจ้าของที่ดินเซ็นสัญญา",sla:"5/10 วันทำการ จาก max(อนุมัติรถตู้, วันเสนอ KT)"},
   {ico:"📤",stp:NBX.send,task:"เซ็นแล้ว · รอส่งเอกสารตรวจสอบสัญญาให้ Legal",sla:"3 วันทำการ จากวันเซ็น"},
   {ico:"⚖️",stp:NBX.check,task:"ส่ง Legal แล้ว · รอ Legal Scan สัญญาเข้าระบบ",sla:"3 วันทำการ จากวันส่ง Legal"},
-  {ico:"📄",stp:NBX.final,task:"Legal Scan แล้ว · สัญญา Final เตรียมส่งต่อ อ.1",sla:"เตรียมส่งต่อ อ.1"},
-  {ico:"✅",stp:NBX.done,task:"ยื่น/เข้าเตรียม อ.1 แล้ว · จบงานเจรจา",sla:"จบท่อนเจรจา"}];
+  {ico:"✅",stp:NBX.final,task:"Legal Scan แล้ว · สัญญา Final — จบท่อนเจรจา (ส่งต่อ อ.1)",sla:"จบท่อนเจรจา"}];
 /* nego rail แยก 2 กลุ่มแบบ App Pipeline: กลุ่มข้าง ๆ (สถานะติดขัด/ยังไม่เดินหน้า) vs ท่อสัญญาที่ไหลไปข้างหน้า
  * (แค่การจัดแสดง — ไม่แตะ compute/negoBox/perf · กล่อง+ตัวเลข+คลิกกรองเหมือนเดิม) */
 var NEGO_SIDE={};[NBX.pot,NBX.stuck,NBX.hold,NBX.siteex].forEach(function(k){NEGO_SIDE[k]=1;});
@@ -506,7 +505,7 @@ function fillWho(){var sel=document.getElementById("who");document.getElementByI
  var ow=md().owners;var h='<option value="__all__">👥 ทั้งทีม ('+md().tasks.length+' งาน)</option>';for(var i=0;i<ow.length;i++){var n=md().tasks.filter(function(x){return x.owner===ow[i];}).length;h+='<option value="'+esc(ow[i])+'">👤 '+esc(ow[i])+' ('+n+')</option>';}sel.innerHTML=h;}
 function kpis(team){var over=team.filter(function(t){return t.st==="red";}).length;var near=team.filter(function(t){return t.st==="amber";}).length;
  var S=md().steps,fin=md().final;var signed=team.filter(function(t){return t.step===fin;}).length;
- if(MODE==="nego"){var sg=team.filter(function(t){return t.signed;}).length;var atsign=team.filter(function(t){return t.step===NBX.sign;}).length;var pend=team.filter(function(t){return t.step!==fin;}).length;var pct=team.length?Math.round(100*sg/team.length):0;
+ if(MODE==="nego"){var sg=team.filter(function(t){return t.signed;}).length;var atsign=team.filter(function(t){return t.step===NBX.sign;}).length;var pend=team.filter(function(t){return t.step!==NBX.final&&t.step!==NBX.siteex;}).length;var pct=team.length?Math.round(100*sg/team.length):0;
    return [{v:pend,l:"📄 งานเจรจาค้าง",f:{k:"pending"}},{v:over,l:"🔴 เกิน SLA",c:"bad",f:{k:"red"}},{v:atsign,l:"✍️ รอเซ็นสัญญา",f:{step:NBX.sign}},{v:sg,l:"✅ เซ็นแล้ว",c:"good",f:{k:"signed"}},{v:pct+"%",l:"อัตราเซ็น"}];}
  if(MODE==="survey"){var p=DATA.perf.survey;return [{v:p.wait,l:"📍 รอรังวัด",f:{step:"รอรังวัด"}},{v:over,l:"🔴 เกิน SLA 10 วันทำการ",c:"bad",f:{k:"red"}},{v:p.appoint,l:"📅 นัดวันแล้ว",c:"warn",f:{step:"นัดวันรังวัด"}},{v:p.measured,l:"📐 รังวัดแล้ว รอส่งผล",f:{step:"รังวัด"}},{v:p.done,l:"✅ ส่งให้ก่อสร้าง",c:"good",f:{step:fin}}];}
  if(MODE==="ratkit"&&RATSUB==="reg"){var done=team.filter(function(t){return t.st==="done";}).length;return [{v:team.length,l:"📋 สาขากำลังทำทะเบียน",f:{k:"all"}},{v:over,l:"🔴 เลยเดดไลน์ D-day",c:"bad",f:{k:"red"}},{v:near,l:"🟠 ใกล้ D-day ≤7 วัน",c:"warn",f:{k:"amber"}},{v:done,l:"✅ ทะเบียนครบ",c:"good",f:{step:fin}},{v:team.length-done,l:"ยังไม่จบ",f:{k:"pending"}}];}
@@ -566,7 +565,7 @@ function visRows(){var t=applyF(tasksFor(),"");
  if(KFILT==="red")t=t.filter(function(x){return x.st==="red";});
  else if(KFILT==="amber")t=t.filter(function(x){return x.st==="amber";});
  else if(KFILT==="done")t=t.filter(function(x){return x.step===md().final;});
- else if(KFILT==="pending")t=t.filter(function(x){return x.step!==md().final;});
+ else if(KFILT==="pending")t=t.filter(function(x){return x.step!==md().final&&(MODE!=="nego"||(x.step!==NBX.final&&x.step!==NBX.siteex));});
  else if(KFILT==="signed")t=t.filter(function(x){return x.signed;});
  else if(KFILT==="waiver")t=t.filter(function(x){return x.waiver;});
  return t.slice().sort(bySk);}
@@ -1183,16 +1182,11 @@ async function getFlow(){  /* milestone กฎหมาย normalize → [code,s
  var raw=await getCsv("https://docs.google.com/spreadsheets/d/1cVFBJpP_C6XY5hM15pu71ioQO7JZ7pihRq1FJ-v-k1g/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent("ตารางรับส่งสัญญา กฎหมาย"));
  return [["code","send_legal","legal_back","sign_owner","signed"]].concat(raw.slice(1).map(function(x){return [cc(x,0),cc(x,11),cc(x,12),cc(x,16),cc(x,8)];}));}
 function _sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
-/* fetch + timeout: คำตอบที่สำเร็จมา 1-2 วิ · ถ้าเกิน ~10 วิ = เจอ 404 ช้าของ Google → ตัดแล้ว retry ทันที ไม่รอ 30 วิ */
-async function _fetchTO(url,ms){var c=new AbortController();var id=setTimeout(function(){c.abort();},ms||10000);try{var r=await fetch(url,{signal:c.signal});clearTimeout(id);return r;}catch(e){clearTimeout(id);throw e;}}
-var _bootDone=0,_bootTotal=0;
-function _bootProg(){var el=document.getElementById("bootprog");if(el)el.textContent="โหลดแล้ว "+_bootDone+"/"+_bootTotal+" แท็บ… (ถ้าชีตอืดจะรอ retry ให้อัตโนมัติ)";}
-/* backend (Apps Script) แกว่ง/throttle เป็นช่วง → retry แบบหน่วงเวลา (backoff+jitter) จนได้ 200 · กัน boot ค้าง/ได้ข้อมูลว่าง */
-async function getUpdates(){for(var t=0;t<16;t++){try{var r=await _fetchTO(WRITE_URL+"?key="+WSECRET,10000);if(r.ok){var j=JSON.parse(await r.text());return (j.rows||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});}}catch(e){}await _sleep(500+Math.floor(Math.random()*1500));}return [];}
-/* ดึงข้อมูลชีตกลางผ่าน Apps Script (script.google.com) — เลี่ยง CORS docs.google.com บน GitHub Pages · retry+backoff กัน backend throttle */
-async function getTab(tab){for(var t=0;t<16;t++){try{var r=await _fetchTO(WRITE_URL+"?tab="+encodeURIComponent(tab),10000);if(r.ok){var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}}catch(e){}await _sleep(500+Math.floor(Math.random()*1500));}return [];}
-/* ยิงทีละกลุ่มเล็ก (จำกัด concurrency) แทนยิง 12 พร้อมกัน — ลดโหลดที่ทำให้ Apps Script throttle · คงลำดับผลลัพธ์ */
-async function _runLimited(jobs,limit){var results=new Array(jobs.length);var i=0;_bootDone=0;_bootTotal=jobs.length;async function w(){while(i<jobs.length){var idx=i++;results[idx]=await jobs[idx]();_bootDone++;_bootProg();}}var ws=[];for(var k=0;k<limit;k++)ws.push(w());await Promise.all(ws);return results;}
+function _bootProg(t){var el=document.getElementById("bootprog");if(el)el.textContent=t||"";}
+/* ⚡ ยิงครั้งเดียวได้ทุกแท็บ (Code.gs ?all) — ไม่ต้องยิง 12 ครั้ง · ⚠️ GAS redirect ช้า ~8-15s/คำขอ ห้ามใส่ timeout สั้น (จะไปตัดคำขอที่กำลังจะสำเร็จ → retry วน = พายุคำขอ ช้าหนัก) */
+async function getAll(){for(var t=0;t<3;t++){try{_bootProg("กำลังโหลดข้อมูล"+(t?" (ลองใหม่ "+t+")":"")+"…");var r=await fetch(WRITE_URL+"?all=1&key="+WSECRET);if(r.ok){var j=JSON.parse(await r.text());if(j&&j.ok&&j.tabs)return j;return null;/* ได้ JSON 200 แต่ไม่มี tabs = ?all ยังไม่ deploy ใน GAS → เลิก ไปใช้ fallback 12 ชุดทันที ไม่วนเสียเวลา */}}catch(e){}await _sleep(1200);}return null;}
+async function getUpdates(){for(var t=0;t<4;t++){try{var r=await fetch(WRITE_URL+"?key="+WSECRET);if(r.ok){var j=JSON.parse(await r.text());return (j.rows||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});}}catch(e){}await _sleep(1200);}return [];}
+async function getTab(tab){for(var t=0;t<4;t++){try{var r=await fetch(WRITE_URL+"?tab="+encodeURIComponent(tab));if(r.ok){var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}}catch(e){}await _sleep(1200);}return [];}
 
 function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego){
  // ---- SLA sheet (อ.1) ----
@@ -1215,7 +1209,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  // (pipe.html computeCounts :3137-3181 · predicates :3059-3088 · waitKtCover :3267) — นับทุกสาขาที่ "อนุมัติรถตู้"
  var negRows=neg.slice(1).filter(function(r){return cc(r,0);});         // คงไว้: ท่อน อ.1/รังวัด ด้านล่างยังใช้
  function gm(r){var m=cc(r,5);return (m&&/[0-9]/.test(m[0]))?m[0]:"?";}  // คงไว้: ใช้ seed candidate อ.1
- var NF=NBX.done;   // final ของท่อนเจรจา (= เข้าท่อน อ.1)
+ var NF=NBX.final;  // final ของท่อนเจรจา = สัญญา Final (จบเจรจา · ยื่น อ.1 เป็นงานของรัฐกิจ)
  // --- lookups จากแท็บ nego (src_nego): col5=Main Status · col4=รูปแบบอนุมัติ · col9=วันเซ็นจริง · col3=owner ---
  var nego2={},approval2={},sign2={},negOwnL={};
  for(var ni=1;ni<neg.length;ni++){var nr=neg[ni];var nc=cc(nr,0);if(!nc)continue;
@@ -1247,11 +1241,10 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    var ns=nStat(r);
    if(ns==="0.Potential with cons")return NBX.pot;
    if(ns==="2.เจรจา-ติดขัด")return NBX.stuck;
-   if(!nNoO1(r))return NBX.done;                                           // ยื่น อ.1 แล้ว = พ้นเจรจา
+   if(!nNoO1(r))return NBX.final;                                          // ยื่น อ.1 แล้ว = จบเจรจา (สัญญา Final เป็นกล่องจบ · อ.1 เป็นท่อนรัฐกิจ)
    if(!nSigned(r))return nWaitKt(r)?NBX.waitkt:NBX.sign;                    // :3175-3177
    if(nScanLg(r)==="")return nSendLg(r)===""?NBX.send:NBX.check;            // :3179-3180
-   if(!nInO1Prep(r))return NBX.final;                                       // :3181
-   return NBX.done;}
+   return NBX.final;}                                                       // :3181 (เซ็น+ส่ง/สแกน legal ครบ = จบเจรจา)
  function nSla(r,box){var c=cc(r,0);
    if(box===NBX.waitkt||box===NBX.sign){var ad=pdate(cc(r,11)),kt=pdate(pnegoKt[c]||"");var start=ad;if(kt&&kt<=TODAY&&(!start||start<kt))start=kt;var tgt=((approval2[c]||"")==="Approved with condition")?10:5;return {ag:start?wdH(start,TODAY):null,tgt:tgt};}
    if(box===NBX.send)return {ag:(function(){var d=pdate(nSignDate(r));return d?wdH(d,TODAY):null;})(),tgt:3};
@@ -1272,9 +1265,9 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    if(isSg)signedCodes[c]={name:cc(r,2)||cc(r,4)||c,prov:cc(r,3)};   // ชุด "เซ็นแล้ว" (เกณฑ์ nSigned เดียวกับ nego/Pipeline) → ใช้เป็นประชากรเข้าท่อน อ.1
    nowner[own]=(nowner[own]||0)+1;if(isSg)nsigned[own]=(nsigned[own]||0)+1;
    var inWip=(box!==NBX.siteex&&box!==NBX.hold&&box!==NBX.pot&&box!==NBX.stuck);
-   if(inWip){nWip++;if(box===NBX.done)nFinal++;}
+   if(inWip){nWip++;if(box===NBX.final)nFinal++;}
    var sla2=nSla(r,box),ag=sla2.ag,tgt=sla2.tgt,st,sx,sk;
-   if(box===NBX.done){st="done";sx=(isSg?"เซ็นแล้ว · เข้าท่อน อ.1 ✓":"เข้าเตรียม อ.1 ✓");sk=[9,0];}
+   if(box===NBX.final){st="done";sx="สัญญา Final · จบท่อนเจรจา ✓"+(nNoO1(r)?"":" (ยื่น อ.1 แล้ว)");sk=[9,0];}
    else if(ag==null){st="none";sx="—";sk=[3,0];}
    else if(ag>tgt){st="red";sx="เกิน SLA "+(ag-tgt)+" วันทำการ (aging "+ag+"/"+tgt+")";sk=[0,-ag];}
    else if(ag===tgt){st="amber";sx="ครบ SLA พอดี (aging "+ag+"/"+tgt+")";sk=[1,-ag];}
@@ -1283,11 +1276,11 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    var task={code:c,name:cc(r,2)||cc(r,4)||c,prov:cc(r,3),owner:own,step:box,st:st,slatxt:sx,sk:sk,
      why:(note?box+" · "+note.slice(0,45):box),stat:stat,substat:(cc(r,6)||"—"),note:note,kt:(pnegoKt[c]||""),ag:(ag==null?null:ag),signed:isSg};
    if(st==="red"){task.due=iso(TODAY);task.dueLbl="เกิน SLA";}
-   if(box!==NBX.done)task.w={track:"nego",field:"signed",lbl:"✅ เซ็นสัญญาแล้ว / อัปเดตความคืบหน้า"};
+   if(box!==NBX.final)task.w={track:"nego",field:"signed",lbl:"✅ เซ็นสัญญาแล้ว / อัปเดตความคืบหน้า"};
    negT.push(task);}
- var nPending=nTotal-nFinal;
+ var nPending=negT.filter(function(t){return t.step!==NBX.final&&t.step!==NBX.siteex;}).length; // ค้าง = ทุกกล่อง ยกเว้น สัญญา Final(จบเจรจา รวมยื่นอ.1)/รอนำเสนอใหม่(ตีกลับสรรหา)
  var nOver=negT.filter(function(t){return t.st=="red";}).length;
- var nSla2=negT.filter(function(t){return t.ag!=null&&t.step!==NBX.done;}).length;
+ var nSla2=negT.filter(function(t){return t.ag!=null&&t.step!==NBX.final;}).length;
  // ================= อ.1 (5 step) =================
  var A_DOC="ติดตามเอกสาร",A_SUB="ยื่นเอกสาร",A_GOV="ติดตามรัฐกิจยื่น อ.1",A_TRK="ติดตาม อ.1",A_OK="เอกสาร อ.1 ออก (จบ)";
  var A_ORD={};A_ORD[A_DOC]=0;A_ORD[A_SUB]=1;A_ORD[A_GOV]=2;A_ORD[A_TRK]=3;A_ORD[A_OK]=4;var OF=A_OK;
@@ -1518,23 +1511,24 @@ window.addEventListener("message",function(e){if(e.origin!==location.origin)retu
 async function boot(silent){
  if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div><div id="bootprog" style="font-size:12px;margin-top:10px;color:var(--faint)"></div></div>';
  try{
-   var res=await _runLimited([function(){return getTab("src_nego");},function(){return getTab("src_sla");},function(){return getTab("src_reg");},function(){return getTab("src_constr");},function(){return getTab("src_ratown");},function(){return getUpdates();},function(){return getTab("src_flow");},function(){return getTab("src_lic");},function(){return getTab("src_tax_sign");},function(){return getTab("src_tax_land");},function(){return getTab("src_tj");},function(){return getTab("src_pnego");}],12);
-   // กันข้อมูลไม่ครบ (เคส 158): ยิงซ้ำเฉพาะแท็บที่ retry หมดแล้วยังว่าง (เว้น updates=5) · หัวใจ src_nego/src_sla ห้ามว่าง ไม่งั้นนับผิดเงียบ ๆ
-   var _slots=[["src_nego",0],["src_sla",1],["src_reg",2],["src_constr",3],["src_ratown",4],["src_flow",6],["src_lic",7],["src_tax_sign",8],["src_tax_land",9],["src_tj",10],["src_pnego",11]];
-   for(var _pass=0;_pass<5;_pass++){
-     var _miss=_slots.filter(function(s){return (res[s[1]]||[]).length<2;});
-     if(!_miss.length)break;
-     if(!silent){var _bp=document.getElementById("bootprog");if(_bp)_bp.textContent="เติมข้อมูลที่ยังไม่ครบ "+_miss.length+" แท็บ…";}
-     await Promise.all(_miss.map(function(s){return getTab(s[0]).then(function(rr){if((rr||[]).length>=2)res[s[1]]=rr;});}));
+   var res, all=await getAll();   // ⚡ ยิงครั้งเดียวได้ทุกแท็บ
+   if(all){
+     var T=all.tabs||{};
+     var upd=(all.updates||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});
+     res=[T.src_nego||[],T.src_sla||[],T.src_reg||[],T.src_constr||[],T.src_ratown||[],upd,T.src_flow||[],T.src_lic||[],T.src_tax_sign||[],T.src_tax_land||[],T.src_tj||[],T.src_pnego||[]];
+     if(T.people){PEOPLE={};for(var pi=1;pi<T.people.length;pi++){var pe=(cc(T.people[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(T.people[pi],1),role:(cc(T.people[pi],2)||"").toLowerCase()};}window.__peopleDone=true;}
+   } else {   // fallback (Code.gs ยังไม่ deploy ?all): ยิง 12 แท็บพร้อมกันแบบง่าย ไม่มี abort/retry storm
+     _bootProg("กำลังโหลด (ทีละแท็บ)…");
+     res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic"),getTab("src_tax_sign"),getTab("src_tax_land"),getTab("src_tj"),getTab("src_pnego")]);
    }
    if((res[0]||[]).length<2||(res[1]||[]).length<2){
-     document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--bad)"><div style="font-size:34px">⚠️</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">โหลดข้อมูลหลักไม่ครบ</div><div style="font-size:12.5px;color:var(--muted);margin-top:6px">เซิร์ฟเวอร์ชีต (Apps Script) ไม่ตอบชั่วคราว — กดลองใหม่</div><button onclick="boot()" style="margin-top:14px;padding:9px 20px;border:none;border-radius:8px;background:#e0ad4c;color:#17140c;font-weight:700;cursor:pointer">🔄 ลองใหม่</button></div>';return;
+     document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--bad)"><div style="font-size:34px">⚠️</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">โหลดข้อมูลไม่ครบ</div><div style="font-size:12.5px;color:var(--muted);margin-top:6px">เซิร์ฟเวอร์ชีตไม่ตอบชั่วคราว — กดลองใหม่</div><button onclick="boot()" style="margin-top:14px;padding:9px 20px;border:none;border-radius:8px;background:#e0ad4c;color:#17140c;font-weight:700;cursor:pointer">🔄 ลองใหม่</button></div>';return;
    }
    DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7],res[8],res[9],res[10],res[11]);
    // problems (คอขวด) = per step count
    var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});
    DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});
-   try{var prc=await getTab("people");PEOPLE={};for(var pi=1;pi<prc.length;pi++){var pe=(cc(prc[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(prc[pi],1),role:(cc(prc[pi],2)||"").toLowerCase()};}}catch(e){}
+   if(!window.__peopleDone){try{var prc=await getTab("people");PEOPLE={};for(var pi=1;pi<prc.length;pi++){var pe=(cc(prc[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(prc[pi],1),role:(cc(prc[pi],2)||"").toLowerCase()};}}catch(e){}}
    if(GOOGLE_CLIENT_ID){
      if(SITE_EMAIL&&PEOPLE[SITE_EMAIL]){var mm=PEOPLE[SITE_EMAIL];CURRENT_ROLE=roleKind(mm.role);CURRENT_USER=(CURRENT_ROLE==="member"?mm.name:"__boss__");applyUserUI();fillWho();render();}
      else if(SITE_EMAIL&&ADMIN_EMAILS.indexOf(SITE_EMAIL)>=0){CURRENT_ROLE="admin";CURRENT_USER="__boss__";applyUserUI();fillWho();render();}

@@ -243,8 +243,40 @@ LOGIC.nego  (แทนบล็อก :1155-1212)
 
 ---
 
+## 10. Write-back ทุก track (เพิ่ม 28 ก.ย.26 · ⛔ ยังไม่เปิด production)
+
+**เป้า:** "ตอบผลในแอป = อัปเดตชีตต้นทางเลย" แบบเดียวกับ reg (แก้ drift overlay↔ต้นทาง)
+**อ่านจริงรอบนี้:** `Code.gs` ทั้งไฟล์ · `cjx_siteops.html` (nSigned:1195, sign2:1184, SSUB/SGOT/SWAI:1160-1161, svy_*:1171-1172, overlay upd:1172, ปุ่ม w:1245/1278-1282/1405-1424) · data-binding.md · ดึง CSV จริง: nego gid1549155273 (1Fnlv8, public) + SLA published (2PACX gid238646031) · owner `1yHsbnt` = **private (export HTTP 400)**
+
+### 10.1 map (colIndex 0-based · match Site Code col0 · เขียน "วันนี้" ถ้าเซลล์ว่าง — พฤติกรรมเดียวกับ reg)
+| track/field | ปุ่มในแอป | อ่านจาก (read) | เขียนกลับ (write target) | column | หลักฐาน column |
+|---|---|---|---|---|---|
+| nego/signed | :1245 | src_sla col26 (หลัก) + src_nego col9 (=1Fnlv8 col17) | **1yHsbnt** "Data Site Nego-2026" | **R (17)** | data-binding.md + layout 1Fnlv8 col17="วันเซ็นสัญญาจริง" (verified) |
+| survey/surveyed | :1417 | src_sla col12 | **1yHsbnt** | **M (12)** | data-binding + 1Fnlv8 col12="รังวัดสอบหมุด" |
+| survey/sent | :1415 | src_sla col13/col56 | **1yHsbnt** | **N (13)** | data-binding + 1Fnlv8 col13="วันส่งผลรังวัด" |
+| survey/appoint | :1424 | overlay only | **ไม่มีคอลัมน์** (app-only) | — | data-binding "นัดวันรังวัด step is app-only" |
+| o1/submit | :1280 | src_sla col33 | **1yHsbnt** | **AG (32)** | data-binding "AG ยื่น อ.1" + 1Fnlv8 col32 |
+| o1/got | :1281 | src_sla col34 | **1yHsbnt** | **AH (33)** | data-binding "AH ได้ อ.1" + 1Fnlv8 col33 |
+| o1/waiver | :1282 | src_sla col46 | **ไม่มีคอลัมน์** owner | — | data-binding "Not present in owner sheet: วันที่อนุโลม" |
+| o1/step | :1278-79 | overlay only | **ไม่มีคอลัมน์** (app-only step tracker) | — | ค่าเป็นชื่อ step ไม่ใช่วันที่ |
+| reg/done | :1323 | src_reg | 18gVIl (เดิม ไม่แตะ) | value=colIndex | มีอยู่แล้ว |
+
+→ ทุก track ที่เขียนได้ ปลายทาง = **owner เดียว `1yHsbnt`** (survey/o1 mirror ผ่าน src_sla; nego mirror ผ่าน src_sla col26) = single write target
+
+### 10.2 implement (Code.gs — reg branch คงเดิมไม่แตะ)
+- `WB_MAP` (ต่อจาก REG_SRC_ID) · `_writeBackDated(track,field,code)` · `_shByGid(id,gid)` · dispatch เพิ่มใน `_writeSource` หลัง reg branch
+- **GATE 2 ชั้น:** `WB_TEST_MODE=true` (dry-run) + `WB_TEST_CODE=""` → **ไม่ setValue ลง production เลย** เขียนจริงเฉพาะ code == WB_TEST_CODE เท่านั้น
+- ตัวทดสอบ `wbDryRun()` — Lead เลือกใน Apps Script editor แล้ว Run เพื่อดู "เซลล์ที่จะเขียน/ค่าปัจจุบัน" (read-only)
+- **map-proof (local, read-only):** จำลอง logic บน nego.csv จริง → code `NSP66-0895` → row4 col R(17) มีค่า `2024-04-01` = **SKIP (มีค่าแล้ว) ✓** · `__DUMMY__` = NOTFOUND ✓ → พิสูจน์ match col0 + write-if-empty ถูก
+
+### 10.3 ข้อแตกต่างจาก reg = ความเสี่ยงที่ต้องเคาะก่อนเปิด
+reg เขียนใส่ `18gVIl` = Gsheet มือกรอกล้วน → ปลอดภัย · แต่ nego/survey/o1 ปลายทาง `1yHsbnt` = **ฐานข้อมูลที่ AppSheet (NS Site Approval / Nego V2) เป็นเจ้าของ** (src_sla hdr0 = "APPSHEET NS Site Approval"/"APPSHEET Nego V2") → เสี่ยง AppSheet เขียนทับ/ชน · **ต้องให้เจ้าของข้อมูลยืนยันก่อน**
+
 ## การตัดสินใจ
 
+- **write-back ทุก track → owner เดียว `1yHsbnt`** (nego R / survey M,N / o1 AG,AH) | ไม่เอา: เขียนใส่ 1Fnlv8-nego (col AppSheet) หรือ src_sla (published อ่านอย่างเดียว) | เพราะ src_sla mirror 1yHsbnt ผ่าน IMPORTRANGE → เขียน owner แล้วแอปเห็น
+- **gate 2 ชั้น (TEST_MODE + TEST_CODE) + dry-run default** | ไม่เอา: เปิดเขียนทันทีแบบ reg | เพราะเป็น live-write ชีตทีมอื่น เสี่ยงสูงสุด + ปลายทาง AppSheet-backed
+- **appoint/waiver/step = ไม่ map** | เพราะ owner sheet ไม่มีคอลัมน์รองรับ (data-binding ยืนยัน) → คงเป็น overlay อย่างเดียว
 - ใช้ **src_sla เป็นประชากรฐาน** ไม่ใช่ src_nego | ไม่เอา: นับจากแท็บ nego ตรง ๆ | เพราะ Pipeline นับจาก SLA (pipe.html:3138)
 - **rail = 10 กล่องแบบ Pipeline ครบ** (Lead เคาะ "ต้องมีทุกกล่อง") | ไม่เอา: คง 7 step เดิม | เพราะ Lead สั่ง
 - **close_pct/sla_pct ฐาน Pipeline** (signed/approved · SLA วันทำการต่อกล่อง) | ไม่เอา: flat ทุกแถวเดิม | Lead เคาะ
@@ -254,6 +286,16 @@ LOGIC.nego  (แทนบล็อก :1155-1212)
 
 ## ต้องยืนยัน / งานต่อ (Lead)
 
+**Write-back (§10) — ก่อนเปิด production ต้องเคาะ:**
+- **A. AppSheet clobber** — ยืนยันกับเจ้าของข้อมูลว่า stamp วันที่ลง `1yHsbnt` R/M/N/AG/AH ผ่าน Apps Script จะไม่ถูก AppSheet เขียนทับ/ไม่ทำ AppSheet พัง (นี่คือความเสี่ยงหลัก — ต่างจาก reg)
+- **B. แชร์ Editor** — บัญชีที่รัน Apps Script ต้องเป็น Editor ของ `1yHsbnt` (ตอนนี้ export ยัง 400 = private · ต้องแชร์ก่อน เหมือน reg ที่ต้องแชร์ 18gVIl)
+- **C. gid ของแท็บ "Data Site Nego-2026"** ใน `1yHsbnt` — โค้ดใช้ `gid:null` = sheets()[0] · ถ้าแท็บนี้ไม่ใช่แท็บแรกต้องใส่ gid จริงใน WB_MAP (dry-run จะฟ้อง NOTFOUND ถ้าผิดแท็บ)
+- **D. layout 1yHsbnt** — column R/M/N/AG/AH มาจาก data-binding.md + layout พี่น้อง 1Fnlv8 (เปิด 1yHsbnt ตรง ๆ ไม่ได้ = private) → **dry-run เป็นตัวยืนยันจริง** (แชร์ view/edit แล้วรัน `wbDryRun()` ดูว่าเซลล์ที่ match มีวันเซ็น/วันรังวัดที่สมเหตุผล)
+- **E. ทดสอบ dummy** — Lead เลือก Site Code dummy 1 ตัว → ตั้ง `WB_TEST_CODE` = code นั้น → รัน `wbDryRun()` (ยัง dry-run) → ตรวจ location ถูก → ค่อยตั้ง `WB_TEST_MODE=false` ชั่วคราวเพื่อเขียน dummy 1 แถว → verify ในชีต → คืน `WB_TEST_MODE=true`
+- **F. deploy** — write-back อยู่ใน Code.gs เดียวกับ sync · ต้องวางทับใน Apps Script editor (WEB app URL เดิม) · **ยังไม่ทำในรอบนี้**
+- **⚠️ ความไม่สอดคล้องในเอกสารอ้างอิง:** data-binding.md ตาราง (บรรทัด ~10) ระบุ src_nego source = `1cVFBJpP` write-back "yes" แต่ Code.gs จริงดึง nego จาก `1Fnlv8` gid1549155273 (1cVFBJpP ใช้แค่ src_flow) → reference เก่า · **ไม่ได้แก้เอง** ยกให้ Lead ตัดสินว่าจะอัปเดต data-binding.md
+
+**เดิม:**
 1. **Deploy + verify** — วาง Code.gs ใน Apps Script → run `setupSync`/`syncAll` (src_tj/src_pnego/constr 8 คอลัมน์เข้า Master) → deploy HTML → Ctrl+F5 → เทียบเลขกับ Pipeline live อีกครั้ง (จุดนี้เท่านั้นที่ยืนยัน 100% สมบูรณ์)
 2. **Robin** ตรวจก่อนถือว่าผ่าน (ค่าตั้งต้น = ยังไม่ผ่าน)
 3. **Luffy** อัปเดต PRD `:49,:264,:282,:129` — สถานะเจรจาเปลี่ยนเป็น SLA-driven + rail 10 กล่อง + denominator ใหม่

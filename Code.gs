@@ -27,6 +27,26 @@ var HEAD = ["Timestamp", "Site Code", "Track", "Field", "Value", "User", "Note"]
 //   *** ต้องแชร์ชีตทะเบียนนี้ให้บัญชีที่รัน Apps Script เป็น Editor ก่อน ***
 var REG_SRC_ID = "18gVIl2NztRw-HUgpSbpjXNO5I_tj7Yuci5Zp9YskCAo";   // Pipeline งานทะเบียนและรัฐกิจ (gid 0)
 
+// ---- ขยาย write-back: nego / survey / o1 (เพิ่ม 28 ก.ย.26 — ยังไม่เปิด production) ----
+// ⛔ WB_TEST_MODE = true → DRY-RUN: ไม่ setValue ลง production เลย · คืนเซลล์ที่ "จะ" เขียน (sheet/row/col/ค่าปัจจุบัน)
+//    เขียนจริงเฉพาะ Site Code == WB_TEST_CODE (dummy ที่ Lead ระบุ) และเฉพาะเมื่อ WB_TEST_MODE ยังเป็น true
+//    เปิด production เต็ม = ตั้ง WB_TEST_MODE=false (ทำหลัง Lead+Robin เคาะ + ยืนยัน owner/สิทธิ์/AppSheet แล้วเท่านั้น)
+var WB_TEST_MODE = true;
+var WB_TEST_CODE = "";   // Lead ใส่ Site Code dummy 1 ตัวตอนพร้อมทดสอบ · ว่าง = dry-run ล้วน (ไม่เขียนอะไรเลย)
+
+// map ปลายทางเขียนกลับ · colIndex = 0-based (ยืนยันจาก layout จริง "Data Site Nego-2026": L=11 M=12 N=13 R=17 AG=32 AH=33)
+//  match ด้วย Site Code col0 · เขียน "วันนี้" เฉพาะเมื่อเซลล์ยังว่าง (พฤติกรรมเดียวกับ reg)
+//  ⚠️ id/gid ต้องให้ Lead ยืนยัน + แชร์ Editor ก่อน (ดูรายงาน) · field ที่ไม่มีคอลัมน์ปลายทาง = ไม่ใส่ใน map (จะไม่เขียน)
+var WB_MAP = {
+  // survey: appoint = app-only (ไม่มีคอลัมน์ต้นทาง) · surveyed→M(12) · sent→N(13) · ปลายทาง = owner 1yHsbnt (Data Site Nego-2026)
+  survey: { id: "1yHsbntgr5F5yCditjQYVWuGaCcVtUBRMEM8PiEbYqkI", gid: null, fields: { surveyed: 12, sent: 13 } },
+  // o1: submit→AG(32) · got→AH(33) · waiver,step = ไม่มีคอลัมน์/app-only (ไม่ map) · ปลายทาง = owner 1yHsbnt
+  o1:     { id: "1yHsbntgr5F5yCditjQYVWuGaCcVtUBRMEM8PiEbYqkI", gid: null, fields: { submit: 32, got: 33 } },
+  // nego signed→R(17) ที่ owner 1yHsbnt · แอปอ่าน signed หลักจาก src_sla col26 (mirror 1yHsbnt ผ่าน IMPORTRANGE)
+  //   → เขียน R(17) ที่ 1yHsbnt = แอปเห็น (ยืนยันด้วย dry-run) · ⚠️ ยังต้องให้ Lead เคาะ (ดูรายงาน: สิทธิ์ + AppSheet clobber)
+  nego:   { id: "1yHsbntgr5F5yCditjQYVWuGaCcVtUBRMEM8PiEbYqkI", gid: null, fields: { signed: 17 } }
+};
+
 function _sheet() {
   var ss = SpreadsheetApp.openById(UPDATES_ID);
   var sh = ss.getSheets()[0];
@@ -63,13 +83,74 @@ function _writeSource(track, field, code, value) {
       }
       return "reg:notfound";
     }
+    // ---- nego / survey / o1 (gate + dry-run) ----
+    if (code && WB_MAP[track] && WB_MAP[track].fields.hasOwnProperty(field)) {
+      return _writeBackDated(track, field, code);
+    }
   } catch (err) { return "srcErr:" + err; }
   return "";
+}
+
+// เขียน "วันนี้" ลงคอลัมน์คงที่ของ track/field · match Site Code col0 · เขียนเฉพาะเมื่อว่าง (แบบ reg)
+//   GATE: WB_TEST_MODE=true → เขียนจริงเฉพาะ code == WB_TEST_CODE · code อื่น = DRY-RUN (คืนเซลล์ที่จะเขียน ไม่ setValue)
+function _writeBackDated(track, field, code) {
+  var cfg = WB_MAP[track];
+  var col = cfg.fields[field];                        // 0-based
+  if (!cfg.id) return track + ":target-unconfirmed";  // ยังไม่ยืนยันปลายทาง (เช่น nego) → ไม่แตะ
+  var live = (!WB_TEST_MODE) || (WB_TEST_CODE && code.toString().trim() === WB_TEST_CODE.toString().trim());
+  var sh = _shByGid(cfg.id, cfg.gid);
+  if (!sh) return track + ":no-sheet(gid " + cfg.gid + ")";
+  var codes = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();   // col A = Site Code
+  for (var i = 0; i < codes.length; i++) {
+    if ((codes[i][0] || "").toString().trim() === code.toString().trim()) {
+      var cell = sh.getRange(i + 1, col + 1);        // 0-based → 1-based
+      var cur = (cell.getValue() || "").toString().trim();
+      var loc = track + "/" + field + " row" + (i + 1) + " col" + (col + 1);
+      if (cur) return "SKIP(มีค่าแล้ว) " + loc + " ='" + cur + "'";
+      if (!live) return "DRYRUN would-stamp " + loc;   // ไม่เขียน production
+      cell.setValue(new Date());
+      return "WROTE " + loc;
+    }
+  }
+  return track + ":notfound";
+}
+
+// หา sheet ตาม gid (ถ้า gid=null → sheets()[0]) — เลี่ยงเขียนผิดแท็บเมื่อชีตมีหลายแท็บ
+function _shByGid(id, gid) {
+  var ss = SpreadsheetApp.openById(id);
+  if (gid == null) return ss.getSheets()[0];
+  var shs = ss.getSheets();
+  for (var i = 0; i < shs.length; i++) if (shs[i].getSheetId() === gid) return shs[i];
+  return null;
+}
+
+// ===== ตัวทดสอบ write-back (รันจาก Apps Script editor — ไม่ผ่าน HTTP) =====
+// เลือกฟังก์ชันนี้ใน dropdown แล้ว Run → ดูผลใน Logger/return · WB_TEST_MODE=true อยู่ = ปลอดภัย (dry-run)
+// แก้ค่า code ในบรรทัดแรกเป็น Site Code ที่จะลอง (dummy หรือของจริงก็ได้ — จริงจะได้ SKIP ถ้ามีค่าแล้ว)
+function wbDryRun() {
+  var code = WB_TEST_CODE || "NSP66-0895";   // ใส่ code ที่จะทดสอบ
+  var out = ["WB_TEST_MODE=" + WB_TEST_MODE + " WB_TEST_CODE='" + WB_TEST_CODE + "' code='" + code + "'"];
+  ["nego", "survey", "o1"].forEach(function (tk) {
+    Object.keys(WB_MAP[tk].fields).forEach(function (f) {
+      out.push(tk + "/" + f + " -> " + _writeSource(tk, f, code, ""));
+    });
+  });
+  var msg = out.join("\n"); Logger.log(msg); return msg;
 }
 
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
+    // ?all=1&key=... → คืนทุกแท็บ + overlay ใน request เดียว (แอป boot ยิงครั้งเดียว ไม่ต้องยิง 12 ครั้ง → กันโหลดค้าง)
+    if (p.all) {
+      if (p.key !== SECRET) return _json({ ok: false, err: "bad key" });
+      var ssA = SpreadsheetApp.openById(UPDATES_ID);
+      var WANT = ["src_nego","src_sla","src_reg","src_constr","src_ratown","src_flow","src_lic","src_tax_sign","src_tax_land","src_tj","src_pnego","people"];
+      var tabs = {};
+      WANT.forEach(function (t) { var s = ssA.getSheetByName(t); tabs[t] = s ? s.getDataRange().getValues() : []; });
+      var upd = []; try { upd = _sheet().getDataRange().getValues(); } catch (e2) {}
+      return _json({ ok: true, tabs: tabs, updates: upd });
+    }
     // ?tab=src_nego (ฯลฯ) → คืนข้อมูล tab นั้นจากชีตกลาง (เลี่ยงปัญหา CORS ของ docs.google.com บน GitHub Pages)
     if (p.tab) {
       var sh = SpreadsheetApp.openById(UPDATES_ID).getSheetByName(p.tab);
