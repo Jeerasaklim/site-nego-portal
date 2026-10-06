@@ -1430,25 +1430,26 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  var SVY_STEPS=[
    {ico:"📍",stp:"รอรังวัด",task:"อนุมัติทำเลแล้ว · รอเข้ารังวัดพื้นที่",sla:"10 วันทำการ จากวันอนุมัติทำเล"},
    {ico:"📅",stp:"นัดวันรังวัด",task:"นัดวันเข้ารังวัดแล้ว · รอถึงวันรังวัด",sla:"เข้ารังวัดตามนัด"},
-   {ico:"📐",stp:"รังวัด",task:"รังวัดพื้นที่เสร็จ · เตรียมส่งผลให้ก่อสร้าง",sla:"ส่งผลให้ก่อสร้างโดยเร็ว"},
-   {ico:"✅",stp:SVF,task:"ส่งผลรังวัดให้ทีมก่อสร้างแล้ว · จบงานรังวัด",sla:"จบงานรังวัด"}];
+   {ico:"📐",stp:"รังวัด",task:"รังวัดพื้นที่/ส่งผลแล้ว · รอวัดค่าระดับก่อนส่งก่อสร้าง",sla:"วัดค่าระดับ/ส่งผลโดยเร็ว"},
+   {ico:"✅",stp:SVF,task:"รังวัด+วัดค่าระดับเสร็จ · ส่งทีมก่อสร้างแล้ว · จบงานรังวัด",sla:"จบงานรังวัด"}];
  var svyT=[];
  for(i=hr+1;i<sla.length;i++){var r=sla[i];var c=cc(r,0);if(!c||opened[c])continue;
    var se8=cc(r,8),se9=cc(r,9);if((se8+" "+se9).indexOf("ยกเลิก")>=0)continue;      // ตัดที่ยกเลิก
    var _svb=negoBox(r);if(_svb===NBX.siteex||_svb===NBX.hold||_svb===NBX.pot||_svb===NBX.stuck)continue; // WIP gate: ตัดสาขาที่ยังค้างเจรจา (potential/stuck/hold/site-ex) ให้นับตรง base ของ Pipeline (:3144-3146)
-   var vanRes=cc(r,73),apprD=pdate(cc(r,11)),svD=pdate(cc(r,12)),sentD=pdate(cc(r,13))||pdate(cc(r,56));
-   var isAppr=(vanRes.indexOf("Approve")>=0);   // อนุมัติรถตู้จริง (ไม่ใช่แค่ขึ้นรถตู้/มีวันพิจารณาทำเล)
-   var surveyed=!!svD||!!svy_surveyed[c],sent=!!sentD||!!svy_sent[c],appointed=!!svy_appoint[c];
-   var hasMs=surveyed||sent||appointed;
-   if(!hasMs&&!isAppr)continue;                                                        // เข้า track = อนุมัติทำเลแล้ว · เปิดแล้ว/ยกเลิก ตัดไปแล้ว (นับหมดทุกสาขาที่ยังไม่รังวัด)
+   // ---- Pipeline survey logic เป๊ะ (computeCounts :3398-3399): base & noO1 · รอรังวัด=c12&c13 ว่าง · measure=surveyed & วัดค่าระดับ(c14) ว่าง ----
+   if(!(cc(r,33)===""&&cc(r,34)===""))continue;                                        // noO1: ยื่น/ได้ อ.1 แล้ว = พ้นรังวัด → นับที่ท่อน อ.1 (ไม่ใช้ col56 เป็น "จบ" อีก)
+   var apprD=pdate(cc(r,11)),svD=pdate(cc(r,12)),sentD=pdate(cc(r,13));
+   var surveyed=(cc(r,12)!==""||cc(r,13)!=="")||!!svy_surveyed[c]||!!svy_sent[c];      // Pipeline surveyed = c12(รังวัดพื้นที่) || c13(ส่งผลรังวัด)
+   var leveled=(cc(r,14)!=="")||!!svy_sent[c];                                          // ผ่าน measure = วัดค่าระดับ(c14) แล้ว = จบรังวัด
+   var appointed=!!svy_appoint[c];
    var step,st,sx,sk,why,w=null;
-   if(sent){step=SVF;st="done";sx="ส่งผลแล้ว ✓";sk=[3,0];why=(cc(r,13)?"ส่งผลรังวัด "+cc(r,13):(cc(r,56)?"ก่อสร้างรับผล "+cc(r,56):"ส่งผลให้ก่อสร้างแล้ว"));}
-   else if(surveyed){var wd2=svD?wdBetween(svD,TODAY):null;step="รังวัด";
-     if(wd2==null){st="none";sx="รังวัดแล้ว · รอส่งผล";sk=[1,0];}
-     else if(wd2>5){st="red";sx="รังวัดแล้ว "+wd2+" วันทำการ ยังไม่ส่งผล";sk=[0,-wd2];}
+   if(surveyed&&leveled){step=SVF;st="done";sx="รังวัด+วัดค่าระดับเสร็จ · ส่งก่อสร้าง ✓";sk=[3,0];why=(cc(r,14)?"วัดค่าระดับ "+cc(r,14):(cc(r,13)?"ส่งผลรังวัด "+cc(r,13):"ส่งก่อสร้างแล้ว"));}
+   else if(surveyed){var baseD=svD||sentD,wd2=baseD?wdBetween(baseD,TODAY):null;step="รังวัด";
+     if(wd2==null){st="none";sx="รังวัดแล้ว · รอวัดค่าระดับ/ส่งผล";sk=[1,0];}
+     else if(wd2>5){st="red";sx="รังวัดแล้ว "+wd2+" วันทำการ ยังไม่วัดระดับ/ส่งผล";sk=[0,-wd2];}
      else{st="green";sx="รังวัดแล้ว "+wd2+" วันทำการ";sk=[1,-wd2];}
      why=(cc(r,12)?"รังวัด "+cc(r,12):"รังวัดพื้นที่แล้ว");
-     w={track:"survey",field:"sent",lbl:"📤 ส่งผลรังวัดให้ก่อสร้างแล้ว"};}
+     w={track:"survey",field:"sent",lbl:"📤 วัดค่าระดับ/ส่งผลให้ก่อสร้างแล้ว"};}
    else if(appointed){step="นัดวันรังวัด";st="amber";var ad=(typeof svy_appoint[c]=="string"&&svy_appoint[c]!="1")?svy_appoint[c]:"";sx="นัดแล้ว"+(ad?" "+ad:"");sk=[1,-1];why="นัดวันรังวัดแล้ว"+(ad?" ("+ad+")":"")+" · รอเข้ารังวัด";
      w={track:"survey",field:"surveyed",lbl:"📐 รังวัดเสร็จแล้ว (ลงวันนี้)"};}
    else{step="รอรังวัด";var wd=apprD?wdBetween(apprD,TODAY):null;
