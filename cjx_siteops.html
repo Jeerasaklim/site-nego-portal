@@ -1518,7 +1518,18 @@ window.addEventListener("message",function(e){if(e.origin!==location.origin)retu
 async function boot(silent){
  if(!silent)document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--muted)"><div style="font-size:34px">⏳</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">กำลังโหลดข้อมูลสดจากชีต…</div><div style="font-size:12px;margin-top:6px">ดึงเจรจา · อ.1 · ทะเบียน · ผลที่ทีมกรอก</div><div id="bootprog" style="font-size:12px;margin-top:10px;color:var(--faint)"></div></div>';
  try{
-   var res=await _runLimited([function(){return getTab("src_nego");},function(){return getTab("src_sla");},function(){return getTab("src_reg");},function(){return getTab("src_constr");},function(){return getTab("src_ratown");},function(){return getUpdates();},function(){return getTab("src_flow");},function(){return getTab("src_lic");},function(){return getTab("src_tax_sign");},function(){return getTab("src_tax_land");},function(){return getTab("src_tj");},function(){return getTab("src_pnego");}],3);
+   var res=await _runLimited([function(){return getTab("src_nego");},function(){return getTab("src_sla");},function(){return getTab("src_reg");},function(){return getTab("src_constr");},function(){return getTab("src_ratown");},function(){return getUpdates();},function(){return getTab("src_flow");},function(){return getTab("src_lic");},function(){return getTab("src_tax_sign");},function(){return getTab("src_tax_land");},function(){return getTab("src_tj");},function(){return getTab("src_pnego");}],12);
+   // กันข้อมูลไม่ครบ (เคส 158): ยิงซ้ำเฉพาะแท็บที่ retry หมดแล้วยังว่าง (เว้น updates=5) · หัวใจ src_nego/src_sla ห้ามว่าง ไม่งั้นนับผิดเงียบ ๆ
+   var _slots=[["src_nego",0],["src_sla",1],["src_reg",2],["src_constr",3],["src_ratown",4],["src_flow",6],["src_lic",7],["src_tax_sign",8],["src_tax_land",9],["src_tj",10],["src_pnego",11]];
+   for(var _pass=0;_pass<5;_pass++){
+     var _miss=_slots.filter(function(s){return (res[s[1]]||[]).length<2;});
+     if(!_miss.length)break;
+     if(!silent){var _bp=document.getElementById("bootprog");if(_bp)_bp.textContent="เติมข้อมูลที่ยังไม่ครบ "+_miss.length+" แท็บ…";}
+     await Promise.all(_miss.map(function(s){return getTab(s[0]).then(function(rr){if((rr||[]).length>=2)res[s[1]]=rr;});}));
+   }
+   if((res[0]||[]).length<2||(res[1]||[]).length<2){
+     document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--bad)"><div style="font-size:34px">⚠️</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">โหลดข้อมูลหลักไม่ครบ</div><div style="font-size:12.5px;color:var(--muted);margin-top:6px">เซิร์ฟเวอร์ชีต (Apps Script) ไม่ตอบชั่วคราว — กดลองใหม่</div><button onclick="boot()" style="margin-top:14px;padding:9px 20px;border:none;border-radius:8px;background:#e0ad4c;color:#17140c;font-weight:700;cursor:pointer">🔄 ลองใหม่</button></div>';return;
+   }
    DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7],res[8],res[9],res[10],res[11]);
    // problems (คอขวด) = per step count
    var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});
