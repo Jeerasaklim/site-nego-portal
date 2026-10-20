@@ -83,12 +83,39 @@ function _writeSource(track, field, code, value) {
       }
       return "reg:notfound";
     }
+    // ↩️ ยกเลิก "เสร็จ" ทะเบียน (field=undo, value="done|<col>") → ล้างวันที่ในชีตทะเบียน
+    //    เฉพาะเมื่อวันที่ในช่อง = วันเดียวกับที่มีคนกด "เสร็จ" ในแอป (= แอปเป็นคนลง) · ถ้าทีมพิมพ์วันอื่นไว้ = ไม่แตะ
+    if (track === "reg" && field === "undo" && code) {
+      var pp = String(value || "").split("|"); if (pp[0] !== "done") return "";
+      var ucol = parseInt(pp[1], 10); if (isNaN(ucol)) return "reg:badcol";
+      var days = _appDoneDays(code, ucol); if (!Object.keys(days).length) return "reg:undo-noevent";
+      var rsh = SpreadsheetApp.openById(REG_SRC_ID).getSheets()[0];
+      var rcodes = rsh.getRange(1, 1, rsh.getLastRow(), 1).getValues();
+      for (var k = 0; k < rcodes.length; k++) {
+        if ((rcodes[k][0] || "").toString().trim() === code.toString().trim()) {
+          var rc = rsh.getRange(k + 1, ucol + 1), rv = rc.getValue();
+          if (rv instanceof Date && days[Utilities.formatDate(rv, "Asia/Bangkok", "yyyy-MM-dd")]) { rc.clearContent(); return "reg UNSTAMP row" + (k + 1) + " col" + (ucol + 1); }
+          return "reg:keep(ไม่ใช่วันที่แอปลง) row" + (k + 1) + " col" + (ucol + 1);
+        }
+      }
+      return "reg:notfound";
+    }
     // ---- nego / survey / o1 (gate + dry-run) ----
     if (code && WB_MAP[track] && WB_MAP[track].fields.hasOwnProperty(field)) {
       return _writeBackDated(track, field, code);
     }
   } catch (err) { return "srcErr:" + err; }
   return "";
+}
+
+// วันที่ (Asia/Bangkok) ที่เคยมีคนกด "เสร็จ" ช่องนี้ของสาขานี้ในแอป — อ่านจาก log (ชีตแรก)
+function _appDoneDays(code, col) {
+  var v = _sheet().getDataRange().getValues(), out = {};
+  for (var i = 1; i < v.length; i++) {
+    if ((v[i][1] || "").toString().trim() === code.toString().trim() && v[i][2] === "reg" && v[i][3] === "done" && String(v[i][4]) === String(col) && v[i][0] instanceof Date)
+      out[Utilities.formatDate(v[i][0], "Asia/Bangkok", "yyyy-MM-dd")] = 1;
+  }
+  return out;
 }
 
 // เขียน "วันนี้" ลงคอลัมน์คงที่ของ track/field · match Site Code col0 · เขียนเฉพาะเมื่อว่าง (แบบ reg)

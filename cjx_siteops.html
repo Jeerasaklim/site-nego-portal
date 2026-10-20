@@ -622,6 +622,12 @@ function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var 
      b+='<div class="ckrow"><span class="ckbx '+(x.ok?"y":(x.st=="red"?"r":"n"))+'">'+(x.ok?"✓":(x.st=="red"?"!":"·"))+'</span><span class="ckn">'+esc(x.n)+'</span><span class="cksx '+(x.st=="red"?"r":(x.ok?"g":""))+'">'+esc(x.sx)+'</span>'+((!x.ok&&_act)?'<button class="ckbtn" onclick="writeBack(\''+esc(t.code)+'\',\'reg\',\'done\',\''+x.col+'\',\'✅ '+esc(x.n)+' เสร็จ\')">เสร็จ</button>':"")+'</div>';});
    b+='</div>';}
  b+='<div class="kv"><span class="k">ผู้รับผิดชอบ</span><span class="v">'+esc(t.owner)+'</span></div><div class="kv"><span class="k">Step ปัจจุบัน</span><span class="v">'+esc(t.step)+'</span></div>'+(t.stat?'<div class="kv"><span class="k">สถานะสัญญา</span><span class="v">'+esc(t.stat)+'</span></div>':"")+(t.kt?'<div class="kv"><span class="k">วันเสนอ KT</span><span class="v">'+esc(t.kt)+'</span></div>':"")+(t.note?'<div class="kv"><span class="k">โน้ตล่าสุด</span><span class="v">'+esc(t.note)+'</span></div>':"");
+ var _ev=_siteEvents(t.code);
+ if(_ev.length){b+='<div class="dstep-h">🕘 ที่กดในแอป — กดผิดยกเลิกได้</div><div class="cklist">';
+   _ev.forEach(function(e){var can=canActTrk(e.track);
+     b+='<div class="ckrow"><span class="ckbx y">✓</span><span class="ckn">'+esc(e.lbl)+'</span><span class="cksx">'+esc(e.when)+(e.n>1?' · กด '+e.n+' ครั้ง':'')+(e.user?' · '+esc(e.user.split("@")[0]):'')+'</span>'+
+       (can?'<button class="ckbtn" data-c="'+esc(t.code)+'" data-t="'+esc(e.track)+'" data-u="'+esc(e.uval)+'" data-l="'+esc(e.lbl)+'" onclick="undoBtn(this)">↩️ ยกเลิก</button>':'')+'</div>';});
+   b+='</div>';}
  if(_act){
    b+='<div class="act-h">⚡ ทำงาน / ตอบผล</div><div class="act-sub">ทำอะไร: '+st.task+'</div>';
    b+='<div class="acts">';
@@ -642,12 +648,51 @@ function saveNote(code,kind){var box=document.getElementById("notebox");var v=bo
 function _banner(msg){var d=document.getElementById("drawer");d.insertAdjacentHTML("afterbegin",'<div style="position:sticky;top:0;background:var(--good);color:#fff;text-align:center;padding:11px;font-family:IBM Plex Sans Thai;font-weight:600;font-size:13px;z-index:3">'+esc(msg)+'</div>');}
 function wbtn(code,w,primary){var v=(w.value===undefined||w.value===null)?"":w.value;
  return '<button class="'+(primary?"primary":"")+'" onclick="writeBack(\''+esc(code)+'\',\''+w.track+'\',\''+w.field+'\',\''+v+'\',\''+esc(w.lbl)+'\')">'+esc(w.lbl)+'</button>';}
+/* ---------- เขียน/ยกเลิก (undo) + กันกดซ้ำ ----------
+   PENDING_UPD = event ที่เพิ่งกด แต่ชีต log ยังไม่เห็น (Apps Script ช้า 5-15s) → เอาไปคำนวณทันที หน้าจอเปลี่ยนเลย ไม่ต้องกดซ้ำ
+   (เคส 20 ต.ค.: กด "เซ็นแล้ว" 7 ครั้ง เพราะหน้าจอยังไม่เปลี่ยน) · ล้างเมื่อชีตมี event นั้นแล้ว หรือครบ 5 นาที */
+var PENDING_UPD=[];
+function _whoAmI(){return SITE_EMAIL||((CURRENT_USER&&CURRENT_USER!=="__boss__")?CURRENT_USER:"")||"";}
+function _seenKey(u){return u.field==="undo"?(u.code+"|"+u.track+"|undo|"+u.value):_updKey(u);}
+function _rebuild(){var res=window.__RAW;if(!res)return;var srv=res[5]||[],seen={},now=Date.now();
+ srv.forEach(function(u){var k=_seenKey(u),t=Date.parse(u.ts)||0;if(!(seen[k]>=t))seen[k]=t;});
+ PENDING_UPD=PENDING_UPD.filter(function(p){return !(seen[_seenKey(p)]>=p._t-120000)&&(now-p._t)<300000;});
+ DATA=compute(res[0],res[1],res[2],res[3],res[4],srv.concat(PENDING_UPD),res[6],res[7],res[8],res[9],res[10],res[11]);
+ var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});   // problems (คอขวด) = per step count
+ DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});}
+function _post(o){o.secret=WSECRET;o.user=_whoAmI();try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(o)});}catch(e){}}
+function _lockDrawer(msg){var d=document.getElementById("drawer");if(!d)return;d.querySelectorAll("button").forEach(function(b){if(!b.classList.contains("x"))b.disabled=true;});_banner(msg);}
 function writeBack(code,track,field,value,lbl){var box=document.getElementById("notebox");var note=box?box.value:"";
- var val=(value===""||value==null)?new Date().toISOString().slice(0,10):value;
- if(WRITE_URL){try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({secret:WSECRET,code:code,track:track,field:field,value:val,note:lbl+(note?" · "+note:"")})});}catch(e){}
-   _banner("✓ บันทึกกลับชีตกลางแล้ว");}
- else{try{fetch(WH,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({code:"OPS:"+code,note:lbl})});}catch(e){}_banner("⚠️ ยังไม่ตั้ง WRITE_URL — เก็บเป็นโน้ตก่อน");}
- setTimeout(closeD,1200);setTimeout(function(){boot(true);},1600);}
+ var val=(value===""||value==null)?iso(new Date()):value;
+ if(!WRITE_URL){try{fetch(WH,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({code:"OPS:"+code,note:lbl})});}catch(e){}_banner("⚠️ ยังไม่ตั้ง WRITE_URL — เก็บเป็นโน้ตก่อน");setTimeout(closeD,1200);return;}
+ var ev={code:code,track:track,field:field,value:String(val),ts:new Date().toISOString(),user:_whoAmI(),_t:Date.now()};
+ for(var i=0;i<PENDING_UPD.length;i++){if(_updKey(PENDING_UPD[i])===_updKey(ev)&&ev._t-PENDING_UPD[i]._t<60000){_lockDrawer("✓ บันทึกไปแล้ว — ไม่ต้องกดซ้ำ");setTimeout(closeD,1200);return;}}   // กันกดซ้ำ
+ _lockDrawer("⏳ กำลังบันทึก…");
+ _post({code:code,track:track,field:field,value:val,note:lbl+(note?" · "+note:"")});
+ PENDING_UPD.push(ev);_rebuild();
+ setTimeout(function(){closeD();render();dlToast("✓ บันทึกแล้ว · "+lbl.replace(/^\S+\s/,"")+" ("+code+") — กดผิด เปิดสาขาแล้วกด ↩️ ยกเลิก ได้");},700);
+ setTimeout(function(){boot(true);},9000);}
+/* ↩️ ยกเลิก: เขียน event field="undo" (ไม่ลบแถว log) · uval = "<field>" หรือ "<field>|<value>" */
+function undoAct(code,track,uval,lbl){
+ if(!confirm("ยกเลิก \""+lbl+"\" ของ "+code+" ?\n(ถ้ากดซ้ำไว้หลายครั้ง จะยกเลิกทั้งหมด)"))return;
+ var key=code+"|"+track+"|"+uval;
+ PENDING_UPD=PENDING_UPD.filter(function(p){return _updKey(p)!==key;});
+ _lockDrawer("⏳ กำลังยกเลิก…");
+ _post({code:code,track:track,field:"undo",value:uval,note:"↩️ ยกเลิก "+lbl});
+ PENDING_UPD.push({code:code,track:track,field:"undo",value:uval,ts:new Date().toISOString(),user:_whoAmI(),_t:Date.now()});_rebuild();
+ setTimeout(function(){closeD();render();dlToast("↩️ ยกเลิกแล้ว · "+lbl+" ("+code+")");},700);
+ setTimeout(function(){boot(true);},9000);}
+function undoBtn(el){undoAct(el.getAttribute("data-c"),el.getAttribute("data-t"),el.getAttribute("data-u"),el.getAttribute("data-l"));}
+/* ประวัติที่กดในแอปของสาขานี้ (ยังไม่ถูกยกเลิก) — รวมกดซ้ำเป็นแถวเดียว */
+var EVL={nego:{signed:"🤝 เซ็นสัญญาแล้ว"},survey:{appoint:"📐 นัดวันรังวัด",surveyed:"📐 รังวัดเสร็จ",sent:"📐 วัดค่าระดับ/ส่งผลให้ก่อสร้าง"},
+ o1:{submit:"🏛️ ยื่น อ.1",got:"🏛️ ได้ อ.1",waiver:"🏛️ อนุโลม (ก่อสร้างก่อน)",step:"🏛️ ขั้น: "},reg:{done:"📋 เสร็จ: "}};
+function _fmtTs(ts){var d=new Date(ts);if(isNaN(d))return "";return d.getDate()+"/"+(d.getMonth()+1)+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);}
+function _siteEvents(code){var g={},order=[];(DATA._upd||[]).forEach(function(u){if(u.code!==code||!EVL[u.track]||!EVL[u.track][u.field])return;
+   var k=_updKey(u);if(!g[k]){g[k]={track:u.track,field:u.field,value:u.value,n:0};order.push(k);}g[k].n++;g[k].ts=u.ts;g[k].user=u.user||"";});
+ return order.map(function(k){var e=g[k];var lb=EVL[e.track][e.field];
+   if(e.track==="reg"){var nm="ช่อง "+e.value;(DATA._regDocs||[]).forEach(function(D){if(String(D.done)===String(e.value))nm=D.n;});lb+=nm;}
+   else if(e.field==="step")lb+=e.value;
+   e.lbl=lb;e.uval=e.field+((e.track==="reg"||e.field==="step")?"|"+e.value:"");e.when=_fmtTs(e.ts);return e;});}
 /* ---------- แท็บสาขา (site view): รวมงานค้างทุกท่อนต่อสาขา ---------- */
 var SEV={red:3,amber:2,green:1,none:0,done:0};
 function siteAgg(){
@@ -761,7 +806,7 @@ function licTable(items,showLic){
 }
 function _toast(msg){var d=document.createElement('div');d.textContent=msg;d.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1c242d;color:#fff;padding:10px 18px;border-radius:10px;font-family:"IBM Plex Sans Thai",sans-serif;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,.3)';document.body.appendChild(d);setTimeout(function(){try{d.remove();}catch(e){}},1800);}
 function renewSkip(code,k,on){
- if(WRITE_URL){try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({secret:WSECRET,code:code,track:"renew",field:(on?"skip":"unskip"),value:k,note:(on?"ยกเว้น (ไม่ต้องขอ)":"เอากลับมาเตือน")})});}catch(e){}}
+ if(WRITE_URL){try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({secret:WSECRET,user:_whoAmI(),code:code,track:"renew",field:(on?"skip":"unskip"),value:k,note:(on?"ยกเว้น (ไม่ต้องขอ)":"เอากลับมาเตือน")})});}catch(e){}}
  var T=(DATA.renew&&DATA.renew.tasks)?DATA.renew.tasks:[];
  T.forEach(function(x){if(x.code===code&&x.k===k){x.skip=on;x.st=on?"skip":x.st0;x.left=on?"🚫 ยกเว้น (ไม่ต้องขอ)":x.left0;x.sev=(x.st==="red"?3:(x.st==="amber"?2:(x.st==="skip"?-1:1)));}});
  renewFilter();
@@ -770,7 +815,7 @@ function renewSkip(code,k,on){
 function renewAct(code,k,expiry,act){
  var _SEV={red:3,amber:2,submit:1,green:0,done:-1,skip:-2};
  var value=(act==="reset"?k:(k+"|"+expiry));
- if(WRITE_URL){try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({secret:WSECRET,code:code,track:"renew",field:act,value:value,note:({submit:"ยื่นแล้ว รอผล",done:"ต่อแล้ว/จ่ายแล้ว",reset:"ยกเลิกสถานะ"}[act]||act)})});}catch(e){}}
+ if(WRITE_URL){try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({secret:WSECRET,user:_whoAmI(),code:code,track:"renew",field:act,value:value,note:({submit:"ยื่นแล้ว รอผล",done:"ต่อแล้ว/จ่ายแล้ว",reset:"ยกเลิกสถานะ"}[act]||act)})});}catch(e){}}
  var T=(DATA.renew&&DATA.renew.tasks)?DATA.renew.tasks:[];
  T.forEach(function(x){if(x.code===code&&x.k===k){
    if(act==="reset"){x.st=x.skip?"skip":x.st0;x.left=x.skip?"🚫 ยกเว้น (ไม่ต้องขอ)":x.left0;}
@@ -1186,10 +1231,15 @@ function _sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function _bootProg(t){var el=document.getElementById("bootprog");if(el)el.textContent=t||"";}
 /* ⚡ ยิงครั้งเดียวได้ทุกแท็บ (Code.gs ?all) — ไม่ต้องยิง 12 ครั้ง · ⚠️ GAS redirect ช้า ~8-15s/คำขอ ห้ามใส่ timeout สั้น (จะไปตัดคำขอที่กำลังจะสำเร็จ → retry วน = พายุคำขอ ช้าหนัก) */
 async function getAll(){for(var t=0;t<3;t++){try{_bootProg("กำลังโหลดข้อมูล"+(t?" (ลองใหม่ "+t+")":"")+"…");var r=await fetch(WRITE_URL+"?all=1&key="+WSECRET);if(r.ok){var j=JSON.parse(await r.text());if(j&&j.ok&&j.tabs)return j;return null;/* ได้ JSON 200 แต่ไม่มี tabs = ?all ยังไม่ deploy ใน GAS → เลิก ไปใช้ fallback 12 ชุดทันที ไม่วนเสียเวลา */}}catch(e){}await _sleep(1200);}return null;}
-async function getUpdates(){for(var t=0;t<4;t++){try{var r=await fetch(WRITE_URL+"?key="+WSECRET);if(r.ok){var j=JSON.parse(await r.text());return (j.rows||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});}}catch(e){}await _sleep(1200);}return [];}
+async function getUpdates(){for(var t=0;t<4;t++){try{var r=await fetch(WRITE_URL+"?key="+WSECRET);if(r.ok){var j=JSON.parse(await r.text());return (j.rows||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4],ts:x[0],user:x[5]||""};});}}catch(e){}await _sleep(1200);}return [];}
 async function getTab(tab){for(var t=0;t<4;t++){try{var r=await fetch(WRITE_URL+"?tab="+encodeURIComponent(tab));if(r.ok){var j=JSON.parse(await r.text());if(j&&j.rows)return j.rows;}}catch(e){}await _sleep(1200);}return [];}
 
+/* ↩️ ยกเลิก (undo) — event field="undo", value="<field>" หรือ "<field>|<value>" (reg/done ระบุช่อง, o1/step ระบุขั้น)
+   ยกเลิก = ตัด event ก่อนหน้าที่ key ตรงกัน "ทั้งหมด" (กดซ้ำหลายครั้งก็หายด้วยการยกเลิกครั้งเดียว) · log ไม่ถูกลบ = มีประวัติครบ · ไม่ยุ่ง renew (มี reset ของมันเอง) */
+function _updKey(u){var k=u.code+"|"+u.track+"|"+u.field;if((u.track==="reg"&&u.field==="done")||(u.track==="o1"&&u.field==="step"))k+="|"+u.value;return k;}
+function _applyUndo(upd){var out=[];(upd||[]).forEach(function(u){if(u.field==="undo"){var tk=u.code+"|"+u.track+"|"+u.value;out=out.filter(function(x){return _updKey(x)!==tk;});}else out.push(u);});return out;}
 function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego){
+ upd=_applyUndo(upd);
  // ---- SLA sheet (อ.1) ----
  var hr=0;for(var i=0;i<8&&i<sla.length;i++){if(sla[i].join("|").indexOf("Site Code")>=0){hr=i;break;}}
  var SGOT={},SWAI={},SSUB={},SSTP={};function okv(v){return v&&v.indexOf("1899")<0&&v.indexOf("1900")<0;}
@@ -1481,7 +1531,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    var o=COH[mk]||(COH[mk]={m:mk,approved:0,signed:0});o.approved++;
    if(cc(r,26)||cc(r,25))o.signed++;}
  var cohort=Object.keys(COH).sort().map(function(k){return COH[k];});
- return {updated:iso(TODAY),wh:NOTES_WH,_opened:opened,
+ return {updated:iso(TODAY),wh:NOTES_WH,_opened:opened,_upd:upd,_regDocs:DOCS,
    nego:{owners:owners(negT),tasks:negT,steps:NEGO_STEPS,final:NF},
    survey:{owners:owners(svyT),tasks:svyT,steps:SVY_STEPS,final:SVF},
    ratkit:{o1:{owners:owners(ratT),tasks:ratT,steps:RAT_STEPS,final:OF},reg:{owners:owners(regT),tasks:regT,steps:REG_STEPS,final:RGF}},
@@ -1516,7 +1566,7 @@ async function boot(silent){
    var res, all=await getAll();   // ⚡ ยิงครั้งเดียวได้ทุกแท็บ
    if(all){
      var T=all.tabs||{};
-     var upd=(all.updates||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4]};});
+     var upd=(all.updates||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4],ts:x[0],user:x[5]||""};});
      res=[T.src_nego||[],T.src_sla||[],T.src_reg||[],T.src_constr||[],T.src_ratown||[],upd,T.src_flow||[],T.src_lic||[],T.src_tax_sign||[],T.src_tax_land||[],T.src_tj||[],T.src_pnego||[]];
      if(T.people){PEOPLE={};for(var pi=1;pi<T.people.length;pi++){var pe=(cc(T.people[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(T.people[pi],1),role:(cc(T.people[pi],2)||"").toLowerCase()};}window.__peopleDone=true;}
    } else {   // fallback (Code.gs ยังไม่ deploy ?all): ยิง 12 แท็บพร้อมกันแบบง่าย ไม่มี abort/retry storm
@@ -1526,10 +1576,7 @@ async function boot(silent){
    if((res[0]||[]).length<2||(res[1]||[]).length<2){
      document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--bad)"><div style="font-size:34px">⚠️</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">โหลดข้อมูลไม่ครบ</div><div style="font-size:12.5px;color:var(--muted);margin-top:6px">เซิร์ฟเวอร์ชีตไม่ตอบชั่วคราว — กดลองใหม่</div><button onclick="boot()" style="margin-top:14px;padding:9px 20px;border:none;border-radius:8px;background:#e0ad4c;color:#17140c;font-weight:700;cursor:pointer">🔄 ลองใหม่</button></div>';return;
    }
-   DATA=compute(res[0],res[1],res[2],res[3],res[4],res[5],res[6],res[7],res[8],res[9],res[10],res[11]);
-   // problems (คอขวด) = per step count
-   var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});
-   DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});
+   window.__RAW=res;_rebuild();
    if(!window.__peopleDone){try{var prc=await getTab("people");PEOPLE={};for(var pi=1;pi<prc.length;pi++){var pe=(cc(prc[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(prc[pi],1),role:(cc(prc[pi],2)||"").toLowerCase()};}}catch(e){}}
    if(GOOGLE_CLIENT_ID){
      if(SITE_EMAIL&&PEOPLE[SITE_EMAIL]){var mm=PEOPLE[SITE_EMAIL];CURRENT_ROLE=roleKind(mm.role);CURRENT_USER=(CURRENT_ROLE==="member"?mm.name:"__boss__");applyUserUI();fillWho();render();}
