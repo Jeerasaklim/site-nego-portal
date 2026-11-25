@@ -37,9 +37,13 @@ var ENM={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:
 function pdate(s){s=(s||"").trim();if(s.length>=10&&s[4]=="-"&&/^\d/.test(s)){var d=new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10));if(!isNaN(d.getTime()))return d;}var p=s.split("-");if(p.length==3){var m=THM[p[1]];if(m==null)m=ENM[(p[1]||"").toLowerCase().slice(0,3)];if(m!=null){var y=+p[2];if(y<100)y+=2000;var dd=new Date(y,m,+p[0]);if(!isNaN(dd.getTime()))return dd;}}return null;}
 function daysBetween(a,b){return Math.round((a-b)/86400000);}
 function wdBetween(a,b){if(!a||!b)return null;if(b<a)return 0;var n=0,cur=new Date(a.getTime());cur.setDate(cur.getDate()+1);while(cur<=b){var g=cur.getDay();if(g!==0&&g!==6)n++;cur.setDate(cur.getDate()+1);}return n;}
-/* วันทำการแบบ Pipeline (workingDays: หลัง start ถึง end · ข้าม ส-อา + วันหยุด CJ 2026 · ติดลบถ้า end<start) — pipe.html:3093 */
+/* วันทำการแบบ Pipeline (workingDays: หลัง start ถึง end · ข้าม ส-อา + วันหยุด CJ 2026–2027 · ติดลบถ้า end<start) — pipe.html:3093 */
 var HOL26={"2026-01-01":1,"2026-01-02":1,"2026-04-13":1,"2026-04-14":1,"2026-04-15":1,"2026-05-01":1,"2026-06-03":1,"2026-07-28":1,"2026-08-12":1,"2026-10-13":1,"2026-12-05":1,"2026-12-07":1,"2026-12-30":1,"2026-12-31":1};
-function wdH(a,b){if(!a||!b)return null;var end=new Date(b.getFullYear(),b.getMonth(),b.getDate()),step=(end>=a)?1:-1,cur=new Date(a.getFullYear(),a.getMonth(),a.getDate()),n=0;while(cur.getTime()!==end.getTime()){cur.setDate(cur.getDate()+step);var g=cur.getDay();var k=cur.getFullYear()+"-"+("0"+(cur.getMonth()+1)).slice(-2)+"-"+("0"+cur.getDate()).slice(-2);if(g>=1&&g<=5&&!HOL26[k])n+=step;}return n;}
+/* วันหยุด CJ 2027 (2570) สำนักงานใหญ่ — ประกาศ CJX-AN-69010 (อีเมล Internal Communication 24 ก.ย. 2026) · 13 วัน รวมวันชดเชย:
+   04-ม.ค. ชดเชยมาฆบูชา(21 ก.พ.) · 03-พ.ค. ชดเชยแรงงาน(1 พ.ค.) · 06-ธ.ค. ชดเชย 5 ธ.ค. · 30-ธ.ค. ชดเชยปิยมหาราช(23 ต.ค.)
+   ⚠️ ปีถัดไป: เพิ่ม HOLyy ตามประกาศจริง แล้วเติมใน HOL ข้างล่าง — ไม่มีปีนั้น = วันหยุดปีนั้นถูกนับเป็นวันทำการ (SLA เพี้ยนเงียบ) */
+var HOL27={"2027-01-01":1,"2027-01-04":1,"2027-04-13":1,"2027-04-14":1,"2027-04-15":1,"2027-05-03":1,"2027-06-03":1,"2027-07-28":1,"2027-08-12":1,"2027-10-13":1,"2027-12-06":1,"2027-12-30":1,"2027-12-31":1};
+function wdH(a,b){if(!a||!b)return null;var end=new Date(b.getFullYear(),b.getMonth(),b.getDate()),step=(end>=a)?1:-1,cur=new Date(a.getFullYear(),a.getMonth(),a.getDate()),n=0;while(cur.getTime()!==end.getTime()){cur.setDate(cur.getDate()+step);var g=cur.getDay();var k=cur.getFullYear()+"-"+("0"+(cur.getMonth()+1)).slice(-2)+"-"+("0"+cur.getDate()).slice(-2);if(g>=1&&g<=5&&!HOL26[k]&&!HOL27[k])n+=step;}return n;}
 
 /* ---- ยกเลิก (undo) + compute (เดิม :1237-1543) ---- */
 /* ↩️ ยกเลิก (undo) — event field="undo", value="<field>" หรือ "<field>|<value>" (reg/done ระบุช่อง, o1/step ระบุขั้น)
