@@ -423,7 +423,7 @@ tbody tr:hover .gobtn{background:var(--accent);color:#fff;border-color:var(--acc
 <div class="scrim" id="scrim" onclick="closeD()"></div><div class="drawer" id="drawer"></div>
 <div class="tmscrim" id="tmscrim" onclick="closeTrackModal()"></div><div class="tmodal" id="tmodal"></div>
 <div id="login"></div>
-<script src="siteops-compute.js?v=20261125kf"></script>
+<script src="siteops-compute.js?v=20261125note"></script>
 <!-- ↑ กติกาคิดสถานะ (compute + ตัวช่วย) ย้ายไป siteops-compute.js — ต้องโหลดก่อนสคริปต์หลัก (NBX/TODAY ถูกใช้ตอน parse) -->
 <script>
 var NOTES_WH="https://script.google.com/macros/s/AKfycbwpSe8-xhAr7sT24kVUZc8FAWxBPOWyD-a5EiTjqZ9dvK8P7u97mcKqYnDn5WAjy7k_rg/exec";
@@ -616,23 +616,49 @@ function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var 
      b+='<div class="ckrow"><span class="ckbx y">✓</span><span class="ckn">'+esc(e.lbl)+'</span><span class="cksx">'+esc(e.when)+(e.n>1?' · กด '+e.n+' ครั้ง':'')+(e.user?' · '+esc(e.user.split("@")[0]):'')+'</span>'+
        (can?'<button class="ckbtn" data-c="'+esc(t.code)+'" data-t="'+esc(e.track)+'" data-u="'+esc(e.uval)+'" data-l="'+esc(e.lbl)+'" onclick="undoBtn(this)">↩️ ยกเลิก</button>':'')+'</div>';});
    b+='</div>';}
+ var _trk=_trkOf(bkt);window.__LASTOPEN={code:t.code,trk:_trk,raw:trk};
  if(_act){
-   b+='<div class="act-h">⚡ ทำงาน / ตอบผล</div><div class="act-sub">ทำอะไร: '+st.task+'</div>';
-   b+='<div class="acts">';
-   if(t.w&&!t.checklist)b+=wbtn(t.code,t.w,true);
-   if(t.w2)b+=wbtn(t.code,t.w2,false);
-   if(!t.w)b+='<button class="primary" onclick="saveNote(\''+esc(t.code)+'\',\'ตอบผล step: '+esc(t.step)+'\')">✅ ตอบผล / อัปเดตความคืบหน้า</button>';
-   b+='<button onclick="saveNote(\''+esc(t.code)+'\',\'บันทึกโน้ต\')">📝 บันทึกโน้ต / ปัญหา</button><button onclick="saveNote(\''+esc(t.code)+'\',\'ส่งต่อทีม\')">🕐 ส่งต่อขั้นถัดไป</button></div>';
-   b+='<input class="note-in" id="notebox" placeholder="รายละเอียด / เหตุผลที่ค้าง...">';
+   // ① ความคืบหน้า (ยังไม่เสร็จขั้น) = โน้ตอย่างเดียว ไม่ขยับขั้น
+   b+='<div class="act-h">📝 อัปเดตความคืบหน้า</div><div class="act-sub">ยังไม่เสร็จขั้นนี้ — เขียนว่าถึงไหน/ติดอะไร · ไม่ขยับขั้น</div>';
+   b+='<textarea class="note-in" id="notebox" rows="3" style="margin-top:0;resize:vertical" placeholder="เช่น นัดเจ้าของที่ 28/11 · รอโฉนดตัวจริง..."></textarea>';
+   b+='<div class="acts" style="margin-top:8px"><button onclick="saveNote(\''+esc(t.code)+'\')">📝 บันทึกความคืบหน้า</button></div>';
+   // ② ขั้นนี้เสร็จแล้ว = ขยับขั้น (เลือกวันได้)
+   var _wa=[];if(t.w&&!t.checklist)_wa.push(t.w);if(t.w2)_wa.push(t.w2);
+   b+='<div class="act-h">✅ ขั้นนี้เสร็จแล้ว</div><div class="act-sub">ทำอะไร: '+st.task+'</div>';
+   if(_wa.length){
+     var _dt=_wa.some(function(w){return WDATE[w.field];});
+     if(_dt){var _fut=_wa.some(function(w){return w.field==="appoint";});
+       b+='<div class="act-sub" style="display:flex;align-items:center;gap:8px;margin-bottom:8px">วันที่ <input type="date" id="actdate" value="'+iso(new Date())+'"'+(_fut?'':' max="'+iso(new Date())+'"')+' style="padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--ink);font-family:inherit"></div>';}
+     b+='<div class="acts">';_wa.forEach(function(w,i){b+=wbtn(t.code,w,i===0);});b+='</div>';}
+   else b+='<div class="act-sub">'+(t.checklist?'กด "เสร็จ" ที่เอกสารแต่ละใบด้านบน':'ขั้นนี้ไม่มีปุ่มกด — ขยับจากชีตต้นทาง · แจ้งความคืบหน้าด้วยช่องด้านบน')+'</div>';
  }else{
    b+='<div class="act-h">🔒 สิทธิ์ดูอย่างเดียว'+(CURRENT_ROLE==="md"?"":" (ท่อนนี้)")+'</div><div class="act-sub">'+ROLE_TH[CURRENT_ROLE]+(CURRENT_ROLE==="md"?' — ดูได้ทุกท่อน (อย่างเดียว ไม่แก้ข้อมูล)':' แก้/ตอบผลได้เฉพาะ อ.1 + ทะเบียน — ท่อนเจรจาดูได้อย่างเดียว')+'</div>';
  }
+ var _nt=_siteNotes(t.code);
+ b+='<div class="dstep-h">📝 โน้ตของสาขานี้ ('+_nt.length+')</div>';
+ if(!_nt.length)b+='<div class="act-sub">ยังไม่มีโน้ต</div>';
+ else{b+='<div class="cklist">';_nt.forEach(function(n){b+='<div class="ckrow" style="align-items:flex-start"><span class="ckn" style="white-space:pre-wrap">'+esc(n.text)+'</span><span class="cksx">'+esc(NTL[n.trk]||n.trk)+' · '+esc(_fmtTs(n.ts))+(n.user?' · '+esc(n.user.split("@")[0]):'')+'</span></div>';});b+='</div>';}
  b+='</div>';
  document.getElementById("drawer").innerHTML=b;document.getElementById("drawer").classList.add("on");document.getElementById("scrim").classList.add("on");}
 function closeD(){document.getElementById("drawer").classList.remove("on");document.getElementById("scrim").classList.remove("on");}
-function saveNote(code,kind){var box=document.getElementById("notebox");var v=box?box.value:"";var msg=kind+(v?": "+v:"");
- try{fetch(WH,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({code:"OPS:"+code,note:msg})});}catch(e){}
- var d=document.getElementById("drawer");d.insertAdjacentHTML("afterbegin",'<div style="position:sticky;top:0;background:var(--good);color:#fff;text-align:center;padding:11px;font-family:IBM Plex Sans Thai;font-weight:600;font-size:13.5px;z-index:3">✓ บันทึกแล้ว ('+esc(code)+')</div>');setTimeout(closeD,950);}
+/* ---------- โน้ตรายสาขา (25 พ.ย. 69 จี: "Note ควรขึ้นของสาขาใครสาขามัน") ----------
+   เก็บลง log ของ Portal (track="note", field=ท่อนที่เขียน, value=ข้อความ) → โชว์ในกล่องสาขานั้นทุกท่อน · ไม่ขยับขั้น
+   (เดิมส่งไป NOTES_WH ของ Pipeline แล้วไม่เคยดึงกลับมาโชว์ = เขียนแล้วหาย) · compute() ไม่สนใจ track "note" */
+var NTL={nego:"🤝 เจรจา",survey:"📐 รังวัด",o1:"🏛️ อ.1",reg:"📋 ทะเบียน"};
+var WDATE={signed:1,appoint:1,surveyed:1,sent:1,submit:1,got:1,waiver:1};   // ปุ่มที่ค่าเป็น "วันที่" → ให้เลือกวันได้
+function _trkOf(b){if(b===DATA.nego)return "nego";if(b===DATA.survey)return "survey";if(b===DATA.ratkit.o1)return "o1";if(b===DATA.ratkit.reg)return "reg";return MODE==="ratkit"?RATSUB:MODE;}
+function _reopen(){var L=window.__LASTOPEN;if(!L)return;var B={nego:DATA.nego,survey:DATA.survey,o1:DATA.ratkit.o1,reg:DATA.ratkit.reg}[L.trk];if(B)openSite(L.code,B,L.raw);}
+function _siteNotes(code){return (DATA._upd||[]).filter(function(u){return u.track==="note"&&u.code===code&&String(u.value||"").trim();})
+ .map(function(u){return {text:String(u.value),trk:u.field,ts:u.ts,user:u.user||""};}).sort(function(a,b){return String(b.ts).localeCompare(String(a.ts));});}
+function _postNote(code,trk,text){var ev={code:code,track:"note",field:trk,value:text,ts:new Date().toISOString(),user:_whoAmI(),_t:Date.now()};
+ for(var i=0;i<PENDING_UPD.length;i++)if(_updKey(PENDING_UPD[i])===_updKey(ev)&&ev._t-PENDING_UPD[i]._t<60000)return false;   // กดซ้ำข้อความเดิม
+ _post({code:code,track:"note",field:trk,value:text,note:"📝 โน้ต ("+(NTL[trk]||trk)+")"});PENDING_UPD.push(ev);return true;}
+function saveNote(code){var box=document.getElementById("notebox");var v=box?box.value.trim():"";
+ if(!v){if(box){box.focus();box.style.borderColor="var(--bad)";}dlToast("พิมพ์ความคืบหน้าก่อน แล้วค่อยกดบันทึก");return;}
+ if(!WRITE_URL){dlToast("⚠️ ยังไม่ตั้ง WRITE_URL");return;}
+ var L=window.__LASTOPEN||{};var ok=_postNote(code,L.trk||MODE,v);_rebuild();render();_reopen();
+ dlToast(ok?"✓ บันทึกความคืบหน้าแล้ว ("+code+")":"✓ บันทึกไปแล้ว — ไม่ต้องกดซ้ำ");
+ setTimeout(function(){boot(true);},9000);}
 function _banner(msg){var d=document.getElementById("drawer");d.insertAdjacentHTML("afterbegin",'<div style="position:sticky;top:0;background:var(--good);color:#fff;text-align:center;padding:11px;font-family:IBM Plex Sans Thai;font-weight:600;font-size:13px;z-index:3">'+esc(msg)+'</div>');}
 function wbtn(code,w,primary){var v=(w.value===undefined||w.value===null)?"":w.value;
  return '<button class="'+(primary?"primary":"")+'" onclick="writeBack(\''+esc(code)+'\',\''+w.track+'\',\''+w.field+'\',\''+v+'\',\''+esc(w.lbl)+'\')">'+esc(w.lbl)+'</button>';}
@@ -650,14 +676,17 @@ function _rebuild(){var res=window.__RAW;if(!res)return;var srv=res[5]||[],seen=
  DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});}
 function _post(o){o.secret=WSECRET;o.user=_whoAmI();try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(o)});}catch(e){}}
 function _lockDrawer(msg){var d=document.getElementById("drawer");if(!d)return;d.querySelectorAll("button").forEach(function(b){if(!b.classList.contains("x"))b.disabled=true;});_banner(msg);}
-function writeBack(code,track,field,value,lbl){var box=document.getElementById("notebox");var note=box?box.value:"";
- var val=(value===""||value==null)?iso(new Date()):value;
+function writeBack(code,track,field,value,lbl){var box=document.getElementById("notebox");var note=box?box.value.trim():"";
+ var _de=document.getElementById("actdate"),_dv=(_de&&/^\d{4}-\d{2}-\d{2}$/.test(_de.value))?_de.value:"";
+ var val=(value===""||value==null)?((WDATE[field]&&_dv)||iso(new Date())):value;
  if(!WRITE_URL){try{fetch(WH,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({code:"OPS:"+code,note:lbl})});}catch(e){}_banner("⚠️ ยังไม่ตั้ง WRITE_URL — เก็บเป็นโน้ตก่อน");setTimeout(closeD,1200);return;}
  var ev={code:code,track:track,field:field,value:String(val),ts:new Date().toISOString(),user:_whoAmI(),_t:Date.now()};
  for(var i=0;i<PENDING_UPD.length;i++){if(_updKey(PENDING_UPD[i])===_updKey(ev)&&ev._t-PENDING_UPD[i]._t<60000){_lockDrawer("✓ บันทึกไปแล้ว — ไม่ต้องกดซ้ำ");setTimeout(closeD,1200);return;}}   // กันกดซ้ำ
  _lockDrawer("⏳ กำลังบันทึก…");
- _post({code:code,track:track,field:field,value:val,note:lbl+(note?" · "+note:"")});
- PENDING_UPD.push(ev);_rebuild();
+ _post({code:code,track:track,field:field,value:val,note:lbl});
+ PENDING_UPD.push(ev);
+ if(note){var _L=window.__LASTOPEN||{};_postNote(code,_L.trk||track,note);}   // พิมพ์ความคืบหน้าไว้ด้วย = เก็บเป็นโน้ตของสาขา
+ _rebuild();
  setTimeout(function(){closeD();render();dlToast("✓ บันทึกแล้ว · "+lbl.replace(/^\S+\s/,"")+" ("+code+") — กดผิด เปิดสาขาแล้วกด ↩️ ยกเลิก ได้");},700);
  setTimeout(function(){boot(true);},9000);}
 /* ↩️ ยกเลิก: เขียน event field="undo" (ไม่ลบแถว log) · uval = "<field>" หรือ "<field>|<value>" */

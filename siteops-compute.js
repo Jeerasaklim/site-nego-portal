@@ -48,7 +48,7 @@ function wdH(a,b){if(!a||!b)return null;var end=new Date(b.getFullYear(),b.getMo
 /* ---- ยกเลิก (undo) + compute (เดิม :1237-1543) ---- */
 /* ↩️ ยกเลิก (undo) — event field="undo", value="<field>" หรือ "<field>|<value>" (reg/done ระบุช่อง, o1/step ระบุขั้น)
    ยกเลิก = ตัด event ก่อนหน้าที่ key ตรงกัน "ทั้งหมด" (กดซ้ำหลายครั้งก็หายด้วยการยกเลิกครั้งเดียว) · log ไม่ถูกลบ = มีประวัติครบ · ไม่ยุ่ง renew (มี reset ของมันเอง) */
-function _updKey(u){var k=u.code+"|"+u.track+"|"+u.field;if((u.track==="reg"&&u.field==="done")||(u.track==="o1"&&u.field==="step"))k+="|"+u.value;return k;}
+function _updKey(u){var k=u.code+"|"+u.track+"|"+u.field;if((u.track==="reg"&&u.field==="done")||(u.track==="o1"&&u.field==="step")||u.track==="note")k+="|"+u.value;return k;}
 function _applyUndo(upd){var out=[];(upd||[]).forEach(function(u){if(u.field==="undo"){var tk=u.code+"|"+u.track+"|"+u.value;out=out.filter(function(x){return _updKey(x)!==tk;});}else out.push(u);});return out;}
 /* Kissflow → เติมช่องที่ชีตว่าง (25 พ.ย. 69 จีสั่ง "เชื่อม Kissflow เหมือน App Pipeline")
    ใช้แท็บ KF_Fill ชุดเดียวกับ Pipeline (kfSync ทุก 30 นาที ในชีต GO State) · กติกาเดียวกับ Pipeline _kfApplyFills_ (GO_webapp.gs):
@@ -158,7 +158,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    var task={code:c,name:cc(r,2)||cc(r,4)||c,prov:cc(r,3),owner:own,step:box,st:st,slatxt:sx,sk:sk,
      why:(note?box+" · "+note.slice(0,45):box),stat:stat,substat:(cc(r,6)||"—"),note:note,kt:(pnegoKt[c]||""),ag:(ag==null?null:ag),signed:isSg};
    if(st==="red"){task.due=iso(TODAY);task.dueLbl="เกิน SLA";}
-   if(box!==NBX.final)task.w={track:"nego",field:"signed",lbl:"✅ เซ็นสัญญาแล้ว / อัปเดตความคืบหน้า"};
+   if(box!==NBX.final)task.w={track:"nego",field:"signed",lbl:"✅ เซ็นสัญญาแล้ว"};
    negT.push(task);}
  var nPending=negT.filter(function(t){return t.step!==NBX.final&&t.step!==NBX.siteex;}).length; // ค้าง = ทุกกล่อง ยกเว้น สัญญา Final(จบเจรจา รวมยื่นอ.1)/รอนำเสนอใหม่(ตีกลับสรรหา)
  var nOver=negT.filter(function(t){return t.st=="red";}).length;
@@ -193,7 +193,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    if(!SGOT[c]){
      if(A_ORD[stp]<A_ORD[A_SUB])t.w={track:"o1",field:"step",value:A_SUB,lbl:"📤 เอกสารครบ / ยื่นเอกสารแล้ว"};
      else if(stp==A_SUB)t.w={track:"o1",field:"step",value:A_GOV,lbl:"🏛️ รัฐยื่นเรื่องแล้ว"};
-     else if(stp==A_GOV)t.w={track:"o1",field:"submit",value:"",lbl:"🔎 ยื่น อ.1 แล้ว (ลงวันนี้)"};
+     else if(stp==A_GOV)t.w={track:"o1",field:"submit",value:"",lbl:"🔎 ยื่น อ.1 แล้ว"};
      else t.w={track:"o1",field:"got",value:"",lbl:"✅ ได้ อ.1 แล้ว"};
      if(!wv)t.w2={track:"o1",field:"waiver",value:"",lbl:"🏗️ อนุโลม (ก่อสร้างก่อน)"};
    }
@@ -332,7 +332,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
      why=(cc(r,12)?"รังวัด "+cc(r,12):"รังวัดพื้นที่แล้ว");
      w={track:"survey",field:"sent",lbl:"📤 วัดค่าระดับ/ส่งผลให้ก่อสร้างแล้ว"};}
    else if(appointed){step="นัดวันรังวัด";st="amber";var ad=(typeof svy_appoint[c]=="string"&&svy_appoint[c]!="1")?svy_appoint[c]:"";sx="นัดแล้ว"+(ad?" "+ad:"");sk=[1,-1];why="นัดวันรังวัดแล้ว"+(ad?" ("+ad+")":"")+" · รอเข้ารังวัด";
-     w={track:"survey",field:"surveyed",lbl:"📐 รังวัดเสร็จแล้ว (ลงวันนี้)"};}
+     w={track:"survey",field:"surveyed",lbl:"📐 รังวัดเสร็จแล้ว"};}
    else{step="รอรังวัด";var wd=apprD?wdBetween(apprD,TODAY):null;
      if(wd==null){st="none";sx="—";sk=[2,0];}
      else if(wd>10){st="red";sx="ค้าง "+wd+" วันทำการ (เกิน 10)";sk=[0,-wd];}
