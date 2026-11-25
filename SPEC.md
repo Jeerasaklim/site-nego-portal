@@ -1,5 +1,8 @@
 # SPEC — Site Nego Portal · ท่อนเจรจา (nego) ให้ตรงกับ App Pipeline
 
+> **⚠️ 2026-11-25: `compute()` + ตัวช่วยวันที่ + `NBX`/`NEGO_STEPS` ย้ายไป `siteops-compute.js` แล้ว** (ย้ายบรรทัดล้วน ไม่แก้ตรรกะ ·
+> เทียบผลบนข้อมูลจริงตรงกันทุกตัวอักษร) · เลขบรรทัด `cjx_siteops.html:NNNN` ในไฟล์นี้หมายถึงรุ่นก่อนย้าย (≤ `756c033`) ·
+> แก้กติกาที่ `siteops-compute.js` ที่เดียว — ExpansionOS (รีโป cjx-inspect) ใช้สำเนาที่คัดลอกจากไฟล์นี้ด้วยสคริปต์ + ตรวจ drift
 > **ไฟล์นี้เก็บอะไร:** data model + logic ของท่อน "เจรจา" ที่ยกมาจาก App Pipeline (ground truth)
 > เพื่อให้ตัวเลขใน Portal ตรงกับ Pipeline · อ่านก่อนแก้ `compute()` ท่อนเจรจา หรือ `Code.gs` sync
 > **สถานะ:** ✅ **IMPLEMENTED** (28 ก.ย.26) — compute() ท่อนเจรจา + Code.gs sync แก้แล้วตาม Lead เคาะ ·
