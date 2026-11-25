@@ -165,6 +165,19 @@ function wbDryRun() {
   var msg = out.join("\n"); Logger.log(msg); return msg;
 }
 
+// ===== Kissflow (25 พ.ย. 69 จีสั่ง "เชื่อม Kissflow เหมือน App Pipeline") =====
+// ไม่ตั้งคีย์ Kissflow ซ้ำ — อ่านแท็บ KF_Fill ที่ App Pipeline (kfSync ทุก 30 นาที) เขียนไว้ในชีต "GO State - Dept Tracking"
+//   = แหล่งเดียวกับ Pipeline → เติมช่องว่างกติกาเดียวกัน (แอปทำใน siteops-compute.js _kfApply)
+// อ่านไม่ได้ → คืน [["ERR", ข้อความ]] ให้แอปเตือน (ห้ามเงียบ) ไม่ทำให้ทั้ง bundle ล้ม
+var GO_STATE_ID = "1H71HAr3wx15Hj9GygzANocgxnusUpffWAZZx09KCDds", KF_FILL_TAB = "KF_Fill";
+function _readKfFill_() {
+  try {
+    var sh = SpreadsheetApp.openById(GO_STATE_ID).getSheetByName(KF_FILL_TAB);
+    if (!sh || sh.getLastRow() < 1) return [["ERR", "ไม่เจอแท็บ " + KF_FILL_TAB]];
+    return sh.getRange(1, 1, sh.getLastRow(), 7).getDisplayValues();
+  } catch (e) { return [["ERR", String(e)]]; }
+}
+
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
@@ -175,10 +188,12 @@ function doGet(e) {
       var WANT = ["src_nego","src_sla","src_reg","src_constr","src_ratown","src_flow","src_lic","src_tax_sign","src_tax_land","src_tj","src_pnego","people"];
       var tabs = {};
       WANT.forEach(function (t) { var s = ssA.getSheetByName(t); tabs[t] = s ? s.getDataRange().getValues() : []; });
+      tabs.src_kf = _readKfFill_();
       var upd = []; try { upd = _sheet().getDataRange().getValues(); } catch (e2) {}
       return _json({ ok: true, tabs: tabs, updates: upd });
     }
     // ?tab=src_nego (ฯลฯ) → คืนข้อมูล tab นั้นจากชีตกลาง (เลี่ยงปัญหา CORS ของ docs.google.com บน GitHub Pages)
+    if (p.tab === "src_kf") return _json({ ok: true, rows: _readKfFill_() });   // Kissflow (อ่านสดจากชีต GO State ของ Pipeline)
     if (p.tab) {
       var sh = SpreadsheetApp.openById(UPDATES_ID).getSheetByName(p.tab);
       if (!sh) return _json({ ok: false, err: "no tab: " + p.tab });
@@ -200,8 +215,12 @@ function _json(o) {
  *    2. อนุญาต (authorize) → มันจะ sync ทันที + ตั้งเวลาออโต้ทุก 5 นาที
  *    (จะ sync เองทุก 5 นาที ไม่ต้องทำอะไรอีก)
  */
+// src_sla: 13 พ.ย. 69 (จีสั่ง) ย้ายจาก published CSV (SLA-Nego gid 238646031) → ถัง G แท็บ SLA (gid 0) — ดู _readTankSla_()
+//   ตรวจก่อนสลับ 13 พ.ย.: 571/571 สาขา × คอลัมน์ 0-90 ตรงกันทุกช่อง (หลังแปลงเดือนอังกฤษ→ไทย) · Portal ใช้สูงสุดคอลัมน์ 73
+//   ⚠️ ถังมีแค่คอลัมน์ A:CM (0-90) — คอลัมน์ 91-114 ของ pub (Action รถตู้/ยอดขาย/Email SA ฯลฯ) ไม่มี (Portal ไม่ได้ใช้)
+var TANK_ID = "1bEj4kn4R1FiNy9sqFqHVZVpC_tvUmTwmchbgxyOe49Y";   // Pipeline Tank (จี)
+var TANK_SLA_GID = 0;
 var SOURCES = [
-  { tab: "src_sla", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTGFYU9PHIek5uAK_vtT6knOAjSLzOREyffUc0s5fipxbiPK3lzg_bxzxCCS0oZWW-OrvKv8ZWyiGK/pub?output=csv&gid=238646031" },
   { tab: "src_ratown", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQQUJHYbkRQeludCnbLks5JVdaZV6hsAnJDhLi5iX6Yqo3-8SWnxZVxPoleVMbTKri8w3Q6zAFjoAvp/pub?output=csv" },
   { tab: "src_reg", url: "https://docs.google.com/spreadsheets/d/18gVIl2NztRw-HUgpSbpjXNO5I_tj7Yuci5Zp9YskCAo/gviz/tq?tqx=out:csv&gid=0" }
 ];
@@ -235,10 +254,37 @@ var TJ_COLS = [0, 11, 12];      // code, วันที่ทีมเจรจ
 var PNEGO_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/export?format=csv&gid=1464560053";
 var PNEGO_COLS = [0, 25];       // code, วันนำเสนอ KT ใหม่ (pipe.html PNEGO_COL_KT=25)
 
+/** ถัง G แท็บ SLA → แถวรูปแบบเดียวกับ pub CSV เดิม (วันที่เดือนไทย "24-พ.ย.-23" · "ธ.ค.-26" · ขึ้นบรรทัดใหม่แบบ LF)
+ *  ถังเป็นภาษาอังกฤษ ("24-Nov-23") → แปลงกลับเป็นไทย กันหน้าแอป/การเทียบ _changes เห็นทุกช่องเปลี่ยนรูปแบบ
+ *  อ่านไม่ได้/แถวน้อยผิดปกติ/ไม่มีหัว Site Code → throw (syncAll เก็บสำเนาเดิมไว้ ไม่ล้าง) */
+function _readTankSla_() {
+  var sh = SpreadsheetApp.openById(TANK_ID).getSheets().filter(function (s) { return s.getSheetId() === TANK_SLA_GID; })[0];
+  if (!sh) throw new Error("ไม่เจอแท็บ SLA (gid " + TANK_SLA_GID + ") ในถัง G");
+  var v = sh.getDataRange().getDisplayValues();
+  if (v.length < 50 || String((v[1] || [])[0] || "").indexOf("Site Code") < 0 || String((v[2] || [])[0] || "").charAt(0) === "#") {
+    throw new Error("ถัง G แท็บ SLA ผิดปกติ (" + v.length + " แถว · A2=" + String((v[1] || [])[0] || "") + " · A3=" + String((v[2] || [])[0] || "") + ")");
+  }
+  var EN2TH = { Jan: "ม.ค.", Feb: "ก.พ.", Mar: "มี.ค.", Apr: "เม.ย.", May: "พ.ค.", Jun: "มิ.ย.", Jul: "ก.ค.", Aug: "ส.ค.", Sep: "ก.ย.", Oct: "ต.ค.", Nov: "พ.ย.", Dec: "ธ.ค." };
+  var rx = /^(\d{1,2}-)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/;
+  return v.map(function (r) {
+    return r.map(function (c) {
+      c = String(c).replace(/\r\n/g, "\n");
+      var m = c.trim().match(rx);
+      return m ? (m[1] || "") + EN2TH[m[2]] + "-" + m[3] : c;
+    });
+  });
+}
+
 function syncAll() {
   var ss = SpreadsheetApp.openById(UPDATES_ID);
   var log = [];
   var allDiffs = [];                              // <== เก็บการแก้ข้อมูลเก่าที่เจอ
+  try {   // src_sla จากถัง G (13 พ.ย. 69)
+    var srows = _readTankSla_();
+    var ds = _diffTab(ss, "src_sla", srows); if (ds.length) allDiffs = allDiffs.concat(ds);
+    _writeRows(ss, "src_sla", srows);
+    log.push("src_sla=" + srows.length + " (ถัง G)");
+  } catch (err) { log.push("src_sla FAIL:" + err); }   // พัง = เก็บสำเนาเดิมไว้ ไม่ลบ
   SOURCES.forEach(function (s) {
     try {
       var rows = Utilities.parseCsv(UrlFetchApp.fetch(s.url, { muteHttpExceptions: true }).getContentText());
@@ -346,7 +392,9 @@ function _diffTab(ss, tab, newRows) {
   for (var i = 1; i < newRows.length; i++) {
     var nr = newRows[i]; var code = (nr[0] || "").toString().trim(); if (!code) continue;
     var orow = oldMap[code]; if (!orow) continue;    // สาขาใหม่ = ไม่ใช่การแก้ของเดิม
-    var w = Math.max(nr.length, orow.length);
+    // 13 พ.ย. 69: เทียบเฉพาะคอลัมน์ที่ต้นทางรอบนี้ยังส่งมา (กว้างตามหัว) — คอลัมน์ที่เลิก sync ไม่ใช่ "คนแก้"
+    //   (src_sla ย้ายเข้าถัง G แคบลง 115→91 คอลัมน์ · แท็บอื่นหัวกว้างเท่าแถว = เหมือนเดิม)
+    var w = Math.min(Math.max(nr.length, orow.length), Math.max(hdr.length, 1));
     for (var j = 1; j < w; j++) {                    // ข้าม col0 (Site Code)
       var ov = (orow[j] == null ? "" : orow[j]).toString().trim();
       var nv = (nr[j] == null ? "" : nr[j]).toString().trim();

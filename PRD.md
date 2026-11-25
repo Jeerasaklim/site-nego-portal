@@ -301,6 +301,7 @@ Portal ในเบราว์เซอร์  →  compute()  →  หน้�
 |---|---|---|---|---|---|
 | `src_sla` | SLA Master / Site Expansion (103 คอลัมน์) | ส่วนกลาง | **ประชากรฐานท่อนเจรจา (SLA-driven)** · รังวัด · อ.1 · cohort · เช็ค "เปิดแล้ว" | sync 5 นาที | 🟢 |
 | `src_nego` | Pipeline Commit Nego | ทีมเจรจา | **lookup รองท่อนเจรจา**: Main Status (col5←nego9) · รูปแบบอนุมัติ (col4←nego37) · วันเซ็น (col9←nego17) · ชื่อ/จังหวัด/ผู้รับผิดชอบ | sync 5 นาที | 🟢 |
+| `src_kf` | **Kissflow** — แท็บ `KF_Fill` ในชีต "GO State - Dept Tracking" (App Pipeline `kfSync` ดึง Kissflow SNG+MOU ทุก 30 นาที) | ระบบ (Pipeline) | **เติมช่องที่ src_sla ว่าง** กติกาเดียวกับ Pipeline `_kfApplyFills_`: ชีตมีค่า = ใช้ชีต · ว่าง = เติมวันจาก Kissflow · col 12 รังวัด · 20 คัด น.4 · 21/22 ผัง · 26 วันเซ็น · 33 ยื่น อ.1 (Code.gs `_readKfFill_` อ่านสดทุกครั้งที่โหลด · แอป `_kfApply` ใน siteops-compute.js) · เก่าเกิน 120 นาที/อ่านไม่ได้ = ขึ้นป้ายเตือน · ผลวันแรก 25 พ.ย.: 71 ช่อง เติม 36 · รอรังวัด 47→40 | ทุก 30 นาที | 🟢 |
 | `src_flow` | ตารางรับส่งสัญญา กฎหมาย | ทีมเจรจา/กฎหมาย | แกะ step ละเอียดของเจรจา (`tjLegal` send/scan) | sync 5 นาที | 🟢 |
 | `src_ratown` | SLA Master (ช่วงผู้รับผิดชอบ) | ทีมรัฐกิจ | ผู้รับผิดชอบ/จังหวัด งาน อ.1 | sync 5 นาที | 🟢 |
 | `src_reg` | Pipeline งานทะเบียนและรัฐกิจ | ทีมทะเบียน | ท่อนทะเบียน · เช็คลิสต์ 16 ใบ · D-day | sync 5 นาที | 🟢 |

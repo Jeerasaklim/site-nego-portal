@@ -50,8 +50,27 @@ function wdH(a,b){if(!a||!b)return null;var end=new Date(b.getFullYear(),b.getMo
    ยกเลิก = ตัด event ก่อนหน้าที่ key ตรงกัน "ทั้งหมด" (กดซ้ำหลายครั้งก็หายด้วยการยกเลิกครั้งเดียว) · log ไม่ถูกลบ = มีประวัติครบ · ไม่ยุ่ง renew (มี reset ของมันเอง) */
 function _updKey(u){var k=u.code+"|"+u.track+"|"+u.field;if((u.track==="reg"&&u.field==="done")||(u.track==="o1"&&u.field==="step"))k+="|"+u.value;return k;}
 function _applyUndo(upd){var out=[];(upd||[]).forEach(function(u){if(u.field==="undo"){var tk=u.code+"|"+u.track+"|"+u.value;out=out.filter(function(x){return _updKey(x)!==tk;});}else out.push(u);});return out;}
-function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego){
+/* Kissflow → เติมช่องที่ชีตว่าง (25 พ.ย. 69 จีสั่ง "เชื่อม Kissflow เหมือน App Pipeline")
+   ใช้แท็บ KF_Fill ชุดเดียวกับ Pipeline (kfSync ทุก 30 นาที ในชีต GO State) · กติกาเดียวกับ Pipeline _kfApplyFills_ (GO_webapp.gs):
+   ชีตมีค่า = ใช้ชีต · ชีตว่างแต่ Kissflow มีวัน = เติม · เฉพาะ tab "sla" (col 12 รังวัด · 20 คัด น.4 · 21/22 ผัง · 26 วันเซ็น · 33 ยื่น อ.1)
+   tab "constr" col144 ไม่เติม — Portal ไม่ได้ใช้ช่องนั้น · คืน meta ไว้เตือนเมื่อข้อมูล Kissflow เก่า/อ่านไม่ได้ */
+var KF_STALE_MIN=120;
+function _kfApply(sla,kf){var meta={synced_at:"",fills:0,applied:0,stale:true,err:""};if(!kf||!kf.length){meta.err="ไม่มีข้อมูล KF_Fill";return {sla:sla,meta:meta};}
+ if(kf[0]&&kf[0][0]==="ERR"){meta.err=String(kf[0][1]||"อ่านไม่ได้");return {sla:sla,meta:meta};}
+ meta.synced_at=String(kf[0][6]||"").replace("synced_at ","");var t=new Date(meta.synced_at.replace(" ","T")+":00+07:00");
+ meta.stale=isNaN(t.getTime())||(Date.now()-t.getTime())>KF_STALE_MIN*60000;
+ var nz=function(s){return String(s==null?"":s).replace(/\s+/g,"");},THN=[];for(var k in THM)THN[THM[k]]=k;
+ var idx={};sla.forEach(function(r,i){var c=nz(r[0]);if(c)(idx[c]=idx[c]||[]).push(i);});
+ var out=sla.slice();
+ for(var i=1;i<kf.length;i++){var code=nz(kf[i][0]),tb=kf[i][1],col=parseInt(kf[i][2],10),d=String(kf[i][3]||"");
+   if(!code||tb!=="sla"||isNaN(col)||!/^\d{4}-\d{2}-\d{2}$/.test(d))continue;meta.fills++;
+   var p=d.split("-"),disp=(+p[2])+"-"+THN[+p[1]-1]+"-"+p[0].slice(2);    // รูปแบบเดียวกับชีต (24-พ.ย.-26)
+   (idx[code]||[]).forEach(function(ri){if(cc(out[ri],col)==="")
+     {var row=out[ri].slice();while(row.length<=col)row.push("");row[col]=disp;out[ri]=row;meta.applied++;}});}
+ return {sla:out,meta:meta};}
+function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego,kf){
  upd=_applyUndo(upd);
+ var _kf=_kfApply(sla||[],kf);sla=_kf.sla;
  // ---- SLA sheet (อ.1) ----
  var hr=0;for(var i=0;i<8&&i<sla.length;i++){if(sla[i].join("|").indexOf("Site Code")>=0){hr=i;break;}}
  var SGOT={},SWAI={},SSUB={},SSTP={};function okv(v){return v&&v.indexOf("1899")<0&&v.indexOf("1900")<0;}
@@ -343,7 +362,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    var o=COH[mk]||(COH[mk]={m:mk,approved:0,signed:0});o.approved++;
    if(cc(r,26)||cc(r,25))o.signed++;}
  var cohort=Object.keys(COH).sort().map(function(k){return COH[k];});
- return {updated:iso(TODAY),wh:NOTES_WH,_opened:opened,_upd:upd,_regDocs:DOCS,
+ return {updated:iso(TODAY),wh:NOTES_WH,_opened:opened,_upd:upd,_kf:_kf.meta,_regDocs:DOCS,
    nego:{owners:owners(negT),tasks:negT,steps:NEGO_STEPS,final:NF},
    survey:{owners:owners(svyT),tasks:svyT,steps:SVY_STEPS,final:SVF},
    ratkit:{o1:{owners:owners(ratT),tasks:ratT,steps:RAT_STEPS,final:OF},reg:{owners:owners(regT),tasks:regT,steps:REG_STEPS,final:RGF}},

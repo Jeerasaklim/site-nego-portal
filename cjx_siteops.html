@@ -423,7 +423,7 @@ tbody tr:hover .gobtn{background:var(--accent);color:#fff;border-color:var(--acc
 <div class="scrim" id="scrim" onclick="closeD()"></div><div class="drawer" id="drawer"></div>
 <div class="tmscrim" id="tmscrim" onclick="closeTrackModal()"></div><div class="tmodal" id="tmodal"></div>
 <div id="login"></div>
-<script src="siteops-compute.js?v=20261125b"></script>
+<script src="siteops-compute.js?v=20261125kf"></script>
 <!-- ↑ กติกาคิดสถานะ (compute + ตัวช่วย) ย้ายไป siteops-compute.js — ต้องโหลดก่อนสคริปต์หลัก (NBX/TODAY ถูกใช้ตอน parse) -->
 <script>
 var NOTES_WH="https://script.google.com/macros/s/AKfycbwpSe8-xhAr7sT24kVUZc8FAWxBPOWyD-a5EiTjqZ9dvK8P7u97mcKqYnDn5WAjy7k_rg/exec";
@@ -645,7 +645,7 @@ function _seenKey(u){return u.field==="undo"?(u.code+"|"+u.track+"|undo|"+u.valu
 function _rebuild(){var res=window.__RAW;if(!res)return;var srv=res[5]||[],seen={},now=Date.now();
  srv.forEach(function(u){var k=_seenKey(u),t=Date.parse(u.ts)||0;if(!(seen[k]>=t))seen[k]=t;});
  PENDING_UPD=PENDING_UPD.filter(function(p){return !(seen[_seenKey(p)]>=p._t-120000)&&(now-p._t)<300000;});
- DATA=compute(res[0],res[1],res[2],res[3],res[4],srv.concat(PENDING_UPD),res[6],res[7],res[8],res[9],res[10],res[11]);
+ DATA=compute(res[0],res[1],res[2],res[3],res[4],srv.concat(PENDING_UPD),res[6],res[7],res[8],res[9],res[10],res[11],res[12]);
  var pc={};DATA.nego.tasks.forEach(function(t){if(t.step!=DATA.nego.final)pc[t.step]=(pc[t.step]||0)+1;});   // problems (คอขวด) = per step count
  DATA.perf.problems=DATA.nego.steps.filter(function(s){return s.stp!=DATA.nego.final;}).map(function(s){return [s.ico+" "+s.stp,pc[s.stp]||0];});}
 function _post(o){o.secret=WSECRET;o.user=_whoAmI();try{fetch(WRITE_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(o)});}catch(e){}}
@@ -1178,7 +1178,7 @@ function closeSide(){var s=document.getElementById("side");if(s)s.classList.remo
 
 /* ============ LIVE DATA LAYER (ดึงสด + คำนวณในเบราว์เซอร์) ============ */
 var SS_NEG="https://docs.google.com/spreadsheets/d/e/2PACX-1vTqFq4mb_2P2bPpfts-C98Dw78uEXaA_Yt1aZFvmx6gplG4r3X1vh8iyqK0NpO7YsP5kApXYKkAW_nZ/pub?output=csv";
-var SS_SLA="https://docs.google.com/spreadsheets/d/e/2PACX-1vSTGFYU9PHIek5uAK_vtT6knOAjSLzOREyffUc0s5fipxbiPK3lzg_bxzxCCS0oZWW-OrvKv8ZWyiGK/pub?output=csv&gid=238646031";
+/* SS_SLA (pub CSV gid 238646031) เลิกใช้ 13 พ.ย. 69 — src_sla มาจากถัง G */
 var SS_RATOWN="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQUJHYbkRQeludCnbLks5JVdaZV6hsAnJDhLi5iX6Yqo3-8SWnxZVxPoleVMbTKri8w3Q6zAFjoAvp/pub?output=csv";
 var ID_NEGLOG="1cVFBJpP_C6XY5hM15pu71ioQO7JZ7pihRq1FJ-v-k1g",ID_REG="18gVIl2NztRw-HUgpSbpjXNO5I_tj7Yuci5Zp9YskCAo",ID_MIR="1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk";
 function gv(id,g){return "https://docs.google.com/spreadsheets/d/"+id+"/gviz/tq?tqx=out:csv&gid="+g;}
@@ -1186,16 +1186,7 @@ var CEN="https://docs.google.com/spreadsheets/d/1Jx3iDrxcaarr8iZi9DfYYJSlAz3hYej
 function csv(s){var R=[],row=[],f="",q=false;for(var i=0;i<s.length;i++){var c=s[i];if(q){if(c=='"'){if(s[i+1]=='"'){f+='"';i++;}else q=false;}else f+=c;}else{if(c=='"')q=true;else if(c==','){row.push(f);f="";}else if(c=='\n'){row.push(f);R.push(row);row=[];f="";}else if(c!='\r')f+=c;}}if(f!==""||row.length){row.push(f);R.push(row);}return R;}
 async function getCsv(u){var r=await fetch(u);return csv(await r.text());}
 async function getCsvFb(cen,src){try{var r=await fetch(cen);if(r.ok){var rows=csv(await r.text());if(rows.length>1&&rows[0].length>3)return rows;}}catch(e){}return await getCsv(src);}  /* ชีตกลางก่อน · ไม่ได้/ว่าง ค่อย fallback ต้นฉบับ */
-/* SLA: เลือกแหล่งที่มี "วันได้ อ.1" (col34) มากกว่า — กันกรณี source คอลัมน์เพี้ยน/central sync ไม่ทัน */
-async function getSla(){
- function score(rows){if(!rows||!rows.length)return -1;var h=0;for(var i=0;i<8&&i<rows.length;i++){if(rows[i].join("|").indexOf("Site Code")>=0){h=i;break;}}var n=0;for(i=h+1;i<rows.length;i++){var v=(rows[i]||[])[34];if(v&&v.indexOf("1899")<0&&v.indexOf("1900")<0)n++;}return n;}
- var cen=null,src=null;
- try{var r=await fetch(CEN+"src_sla");if(r.ok){var rr=csv(await r.text());if(rr.length>1)cen=rr;}}catch(e){}
- var cs=score(cen);if(cs>=15)return cen;
- try{src=await getCsv(SS_SLA);}catch(e){}
- var ss=score(src);
- return (cs>=ss)?(cen||src||[]):(src||cen||[]);
-}
+/* getSla (เลือก src_sla กลาง vs pub CSV) ถอดออก 13 พ.ย. 69 — ไม่มีที่เรียกแล้ว (โหลดผ่าน getAll/getTab) · src_sla มาจากถัง G (Code.gs _readTankSla_) */
 async function getConstr(){  /* ก่อสร้าง normalize → [code,name,prov,open,active,hide] */
  try{var r=await fetch(CEN+"src_constr");if(r.ok){var rows=csv(await r.text());if(rows.length>1&&rows[0].length>=6)return rows.slice(1);}}catch(e){}
  var raw=await getCsv(gv(ID_MIR,"1005640128"));return raw.slice(3).map(function(x){return [cc(x,2),cc(x,3),cc(x,5),cc(x,137),cc(x,138),cc(x,139)];});}
@@ -1236,16 +1227,17 @@ async function boot(silent){
    if(all){
      var T=all.tabs||{};
      var upd=(all.updates||[]).slice(1).filter(function(x){return x.length>=5&&x[1];}).map(function(x){return {code:x[1],track:x[2],field:x[3],value:x[4],ts:x[0],user:x[5]||""};});
-     res=[T.src_nego||[],T.src_sla||[],T.src_reg||[],T.src_constr||[],T.src_ratown||[],upd,T.src_flow||[],T.src_lic||[],T.src_tax_sign||[],T.src_tax_land||[],T.src_tj||[],T.src_pnego||[]];
+     res=[T.src_nego||[],T.src_sla||[],T.src_reg||[],T.src_constr||[],T.src_ratown||[],upd,T.src_flow||[],T.src_lic||[],T.src_tax_sign||[],T.src_tax_land||[],T.src_tj||[],T.src_pnego||[],T.src_kf||[]];
      if(T.people){PEOPLE={};for(var pi=1;pi<T.people.length;pi++){var pe=(cc(T.people[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(T.people[pi],1),role:(cc(T.people[pi],2)||"").toLowerCase()};}window.__peopleDone=true;}
    } else {   // fallback (Code.gs ยังไม่ deploy ?all): ยิง 12 แท็บพร้อมกันแบบง่าย ไม่มี abort/retry storm
      _bootProg("กำลังโหลด (ทีละแท็บ)…");
-     res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic"),getTab("src_tax_sign"),getTab("src_tax_land"),getTab("src_tj"),getTab("src_pnego")]);
+     res=await Promise.all([getTab("src_nego"),getTab("src_sla"),getTab("src_reg"),getTab("src_constr"),getTab("src_ratown"),getUpdates(),getTab("src_flow"),getTab("src_lic"),getTab("src_tax_sign"),getTab("src_tax_land"),getTab("src_tj"),getTab("src_pnego"),getTab("src_kf")]);
    }
    if((res[0]||[]).length<2||(res[1]||[]).length<2){
      document.getElementById("body").innerHTML='<div style="text-align:center;padding:70px 20px;color:var(--bad)"><div style="font-size:34px">⚠️</div><div style="font-family:IBM Plex Sans Thai;font-weight:700;font-size:16px;margin-top:10px">โหลดข้อมูลไม่ครบ</div><div style="font-size:12.5px;color:var(--muted);margin-top:6px">เซิร์ฟเวอร์ชีตไม่ตอบชั่วคราว — กดลองใหม่</div><button onclick="boot()" style="margin-top:14px;padding:9px 20px;border:none;border-radius:8px;background:#e0ad4c;color:#17140c;font-weight:700;cursor:pointer">🔄 ลองใหม่</button></div>';return;
    }
    window.__RAW=res;_rebuild();
+   var _km=DATA._kf||{};if(!silent&&(_km.err||_km.stale))setTimeout(function(){dlToast("⚠️ ข้อมูล Kissflow "+(_km.err?"อ่านไม่ได้ ("+_km.err+")":"เก่า — ล่าสุด "+_km.synced_at)+" · ตัวเลขใช้ GSheet อย่างเดียว");},1500);
    if(!window.__peopleDone){try{var prc=await getTab("people");PEOPLE={};for(var pi=1;pi<prc.length;pi++){var pe=(cc(prc[pi],0)||"").toLowerCase();if(pe)PEOPLE[pe]={name:cc(prc[pi],1),role:(cc(prc[pi],2)||"").toLowerCase()};}}catch(e){}}
    if(GOOGLE_CLIENT_ID){
      if(SITE_EMAIL&&PEOPLE[SITE_EMAIL]){var mm=PEOPLE[SITE_EMAIL];CURRENT_ROLE=roleKind(mm.role);CURRENT_USER=(CURRENT_ROLE==="member"?mm.name:"__boss__");applyUserUI();fillWho();render();}
