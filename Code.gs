@@ -254,6 +254,169 @@ var TJ_COLS = [0, 11, 12];      // code, วันที่ทีมเจรจ
 var PNEGO_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/export?format=csv&gid=1464560053";
 var PNEGO_COLS = [0, 25];       // code, วันนำเสนอ KT ใหม่ (pipe.html PNEGO_COL_KT=25)
 
+// ===== 27 พ.ย. 69 (จีสั่ง "ทุกหน้า + App Site Nego ดึงจาก GSheet · GSheet = ถังข้อมูลหลัก") =====
+// แหล่งที่ถัง G มีแท็บแล้ว → อ่านจากถัง G แทนถังเก่าทีม DATA (1Fnlv8) / pub / ไฟล์ต้นทางตรง
+//   สลับทีละแหล่งด้วย USE_TANK · เปิด true เฉพาะแหล่งที่ compareTankSources() บอกว่าตรงครบ
+//   (แบบเดียวกับย้าย src_sla 13 พ.ย.) · อ่านถังไม่ได้ = throw → syncAll เก็บสำเนาเดิมไว้ (ไม่ล้าง)
+var TANK_GIDS = { nego: 1549155273, tj: 1839838784, pnego: 1464560053, constr: 1005640128, flow: 294361077 /* APP_รับส่งสัญญากฎหมาย = IMPORTRANGE 1cVFBJ 'ตารางรับส่งสัญญา กฎหมาย' (สร้าง 27 พ.ย.) */, ratown: 1153633451, reg: 347920672 };
+var TANK_LIC_TABS = { "ใบอนุญาต": "SD ใบอนุญาต", "ต่ออายุใบอนุญาต": "SD ต่ออายุใบอนุญาต",
+  "ภาษีป้าย@2569": "SD ภาษีป้าย@2569", "ภาษีที่ดินและสิ่งปลูกสร้าง@2569": "SD ภาษีที่ดินและสิ่งปลูกสร้าง@2569" };
+// 27 พ.ย. 69 compareTankSources: nego 0/4905 · tj 0/1084 · pnego 0/382 · constr 0/3822 · ratown 0/11300 · reg 0/14586 (+แถว RNV67-0560 มีแต่รหัส แอปข้ามเอง)
+//   · ใบอนุญาต 0/43440 · ภาษีป้าย 0/1624 · ภาษีที่ดิน 0/1044 → เปิดทั้งหมด
+//   flow: ต้นทางเดิม (1cVFBJ gviz) พัง "Could not parse text" มาตลอด → src_flow ว่าง · 27 พ.ย. จีกด Allow access ถัง↔1cVFBJ
+//     → สร้างแท็บถัง APP_รับส่งสัญญากฎหมาย แล้วเปิด · ⚠️ FLOW_COLS เดิม [0,11,12,16,8]: col8 = "กำหนด เจรจา(HQ) รับสัญญา" ไม่ใช่ "วันเซ็นจริง" (col7) · col16 หัวว่าง — ยังไม่แก้ รอเคาะ
+var USE_TANK = { nego: true, tj: true, pnego: true, constr: true, flow: true, ratown: true, reg: true, lic: true };
+
+var _TANK_SS_ = null;
+function _tankSs_() { return _TANK_SS_ || (_TANK_SS_ = SpreadsheetApp.openById(TANK_ID)); }
+// วันที่ในถังเป็นเดือนอังกฤษ ("24-Nov-23") → แปลงเป็นไทยให้เหมือนต้นทางเดิม (กัน _changes เห็นทุกช่องเปลี่ยนรูปแบบ)
+function _en2thRows_(v) {
+  var EN2TH = { Jan: "ม.ค.", Feb: "ก.พ.", Mar: "มี.ค.", Apr: "เม.ย.", May: "พ.ค.", Jun: "มิ.ย.", Jul: "ก.ค.", Aug: "ส.ค.", Sep: "ก.ย.", Oct: "ต.ค.", Nov: "พ.ย.", Dec: "ธ.ค." };
+  var rx = /^(\d{1,2}-)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/;
+  return v.map(function (r) {
+    return r.map(function (c) {
+      c = String(c).replace(/\r\n/g, "\n");
+      var m = c.trim().match(rx);
+      return m ? (m[1] || "") + EN2TH[m[2]] + "-" + m[3] : c;
+    });
+  });
+}
+// อ่านแท็บถัง G ตาม gid (display values + แปลงเดือน) · ไม่เจอแท็บ / แถวน้อย / A1-A3 เป็น #error → throw (ห้ามเงียบ)
+//   keepEn = true → ไม่แปลงเดือน (ต้นทางเดิมของท่อนนั้นเป็นเดือนอังกฤษอยู่แล้ว เช่น ก่อสร้าง)
+function _readTankGid_(gid, keepEn) {
+  var sh = _tankSs_().getSheets().filter(function (s) { return s.getSheetId() === gid; })[0];
+  if (!sh) throw new Error("ไม่เจอแท็บ gid " + gid + " ในถัง G");
+  var v = sh.getDataRange().getDisplayValues();
+  if (v.length < 10) throw new Error("ถัง G gid " + gid + " แถวน้อยผิดปกติ (" + v.length + ")");
+  for (var i = 0; i < Math.min(3, v.length); i++) {
+    if (String((v[i] || [])[0] || "").charAt(0) === "#") throw new Error("ถัง G gid " + gid + " แถว " + (i + 1) + " = " + v[i][0]);
+  }
+  var n = v.length;   // ตัดแถวว่างท้ายแท็บ (แท็บสูตรในถังกินแถวถึงขอบชีต) → จำนวนแถวเท่าต้นทางเดิม
+  while (n > 0 && v[n - 1].every(function (c) { return String(c).trim() === ""; })) n--;
+  v = v.slice(0, n);
+  return keepEn ? v.map(function (r) { return r.map(function (c) { return String(c).replace(/\r\n/g, "\n"); }); }) : _en2thRows_(v);
+}
+function _readUrlCsv_(url) { return Utilities.parseCsv(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText()); }
+
+// ตัวแปลงแถวดิบ → รูปแบบที่แอปอ่าน (ใช้ทั้ง syncAll และ compareTankSources — กติกาชุดเดียว)
+function _xConstr_(craw) {   // ก่อสร้าง: ตัดเหลือ 8 คอลัมน์ (header + data จากแถว 4)
+  var out = [["code", "name", "prov", "open", "active", "hide", "permit_submit", "send_ratkit"]];
+  for (var i = 3; i < craw.length; i++) {
+    var r = craw[i]; if (!(r[2] || "").toString().trim()) continue;
+    out.push(CONSTR_COLS.map(function (c) { return r[c] || ""; }));
+  }
+  return out;
+}
+function _xFlow_(fraw) {     // milestone flow: code + 4 วันที่
+  var fout = [["code", "send_legal", "legal_back", "sign_owner", "signed"]];
+  for (var i = 1; i < fraw.length; i++) {
+    var r = fraw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+    fout.push(FLOW_COLS.map(function (c) { return r[c] || ""; }));
+  }
+  return fout;
+}
+function _xNego_(nraw) {     // เจรจา → remap เป็น layout เดิม · ข้าม header 2 แถว
+  var nhead = ["Site Code", "ชื่อสาขา", "จังหวัด", "เจรจา", "รูปแบบการอนุมัติ", "Main Status", "Sub status", "อุปสรรค/ปัญหา", "หมายเหตุปัญหา", "วันเซ็นสัญญาจริง"];
+  var nout = [nhead];
+  for (var i = 2; i < nraw.length; i++) {
+    var r = nraw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+    var o = ["", "", "", "", "", "", "", "", "", ""];
+    Object.keys(NEGO_MAP).forEach(function (k) { o[k] = r[NEGO_MAP[k]] || ""; });
+    nout.push(o);
+  }
+  return nout;
+}
+function _xTj_(traw) {       // tjLegal → [code, send, scan]
+  var tout = [["code", "send_legal", "legal_scan"]];
+  for (var i = 1; i < traw.length; i++) {
+    var r = traw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+    tout.push(TJ_COLS.map(function (c) { return r[c] || ""; }));
+  }
+  return tout;
+}
+function _xPnego_(praw) {    // pnegoKt → [code, kt]
+  var pout = [["code", "kt_date"]];
+  for (var i = 1; i < praw.length; i++) {
+    var r = praw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
+    pout.push(PNEGO_COLS.map(function (c) { return r[c] || ""; }));
+  }
+  return pout;
+}
+// ใบอนุญาต/ภาษี: getValues + วันที่ → yyyy-MM-dd (แบบเดิม) · sh = แท็บต้นทางหรือแท็บถัง
+function _licRows_(sh, tz) {
+  return sh.getDataRange().getValues().map(function (row) { return row.map(function (c) {
+    if (c instanceof Date) return Utilities.formatDate(c, tz, "yyyy-MM-dd");
+    return (c === null || c === undefined) ? "" : c.toString();
+  }); });
+}
+// แหล่งดิบของแต่ละท่อน: ถัง G ถ้า USE_TANK เปิด · ไม่งั้นที่เดิม
+function _rawNego_(fromTank)   { return fromTank ? _readTankGid_(TANK_GIDS.nego)   : _readUrlCsv_(NEGO_URL); }
+function _rawTj_(fromTank)     { return fromTank ? _readTankGid_(TANK_GIDS.tj)     : _readUrlCsv_(TJ_URL); }
+function _rawPnego_(fromTank)  { return fromTank ? _readTankGid_(TANK_GIDS.pnego)  : _readUrlCsv_(PNEGO_URL); }
+function _rawConstr_(fromTank) { return fromTank ? _readTankGid_(TANK_GIDS.constr, true) : _readUrlCsv_(CONSTR_URL); }   // ก่อสร้างเดิม = เดือนอังกฤษ
+function _rawFlow_(fromTank) {   // ถัง: หัว 2 แถว (กลุ่ม + ชื่อฟิลด์) → ตัดให้หัวชื่อฟิลด์เป็นแถวแรก (gviz เดิมรวมหัวเป็นแถวเดียว)
+  if (!fromTank) return _readUrlCsv_(FLOW_URL);
+  var t = _readTankGid_(TANK_GIDS.flow);
+  for (var h = 0; h < Math.min(5, t.length); h++) if (String(t[h][0] || "").trim() === "Site Code") return t.slice(h);
+  throw new Error("ถัง G รับส่งสัญญากฎหมาย ไม่เจอแถวหัว Site Code");
+}
+function _rawSrc_(tab, fromTank) {   // src_ratown / src_reg (เก็บทั้งแถว)
+  if (fromTank) {
+    var t = _readTankGid_(TANK_GIDS[tab.replace("src_", "")]);
+    // ทะเบียน: ถังมีแถวว่าง + หัว "Site Code" แยกแถว (gviz เดิมรวมหัวเป็นแถวเดียว) → ตัดให้หัวอยู่แถวแรก
+    //   ไม่งั้นแอปนับแถวหัว "Site Code" เป็นสาขา (siteops-compute.js:221 อ่านตั้งแต่แถว 1)
+    if (tab === "src_reg") {
+      for (var h = 0; h < Math.min(5, t.length); h++) if (String(t[h][0] || "").trim() === "Site Code") return t.slice(h);
+      throw new Error("ถัง G งานทะเบียน ไม่เจอแถวหัว Site Code");
+    }
+    return t;
+  }
+  var s = SOURCES.filter(function (x) { return x.tab === tab; })[0];
+  return _readUrlCsv_(s.url);
+}
+
+/** เทียบ "ที่เดิม" กับ "ถัง G" ทุกช่อง (อ่านอย่างเดียว ไม่เขียนอะไร) — รันจาก editor แล้วดู Logger
+ *  ตรงครบ = เปิด USE_TANK ของแหล่งนั้นได้ · ไม่ตรง = ดูตัวอย่างช่องที่ต่าง */
+function compareTankSources() {
+  var lines = [];
+  function norm(x) { return (x == null ? "" : String(x)).replace(/\r\n/g, "\n").trim(); }
+  function byCode(rows) { var m = {}, dup = 0; for (var i = 1; i < rows.length; i++) { var c = norm(rows[i][0]); if (!c) continue; if (c in m) { dup++; continue; } m[c] = rows[i]; } return { m: m, dup: dup }; }
+  function cmpKeyed(name, A, B) {   // A = ที่เดิม, B = ถัง G (แปลงแล้ว)
+    var a = byCode(A), b = byCode(B), onlyA = [], onlyB = [], diff = 0, cells = 0, samp = [];
+    var w = Math.max(A[0].length, B[0].length);
+    Object.keys(a.m).forEach(function (c) {
+      if (!(c in b.m)) { onlyA.push(c); return; }
+      for (var j = 1; j < w; j++) { cells++; var x = norm(a.m[c][j]), y = norm(b.m[c][j]); if (x !== y) { diff++; if (samp.length < 6) samp.push(c + " · " + norm(A[0][j] || ("col" + j)).slice(0, 25) + " : [" + x.slice(0, 30) + "] → [" + y.slice(0, 30) + "]"); } }
+    });
+    Object.keys(b.m).forEach(function (c) { if (!(c in a.m)) onlyB.push(c); });
+    lines.push((diff === 0 && !onlyA.length && !onlyB.length ? "✅ " : "❌ ") + name + " : สาขา เดิม " + Object.keys(a.m).length + " / ถัง " + Object.keys(b.m).length +
+      " · ช่องต่าง " + diff + "/" + cells + " · มีแต่เดิม " + onlyA.length + (onlyA.length ? " (" + onlyA.slice(0, 5).join(",") + ")" : "") +
+      " · มีแต่ถัง " + onlyB.length + (onlyB.length ? " (" + onlyB.slice(0, 5).join(",") + ")" : "") + " · รหัสซ้ำ เดิม " + a.dup + "/ถัง " + b.dup);
+    samp.forEach(function (s) { lines.push("     " + s); });
+  }
+  function tryRun(name, fn) { try { fn(); } catch (e) { lines.push("⚠️ " + name + " อ่านไม่ได้: " + e); } }
+  tryRun("src_nego",   function () { cmpKeyed("src_nego",   _xNego_(_rawNego_(false)),     _xNego_(_rawNego_(true))); });
+  tryRun("src_tj",     function () { cmpKeyed("src_tj",     _xTj_(_rawTj_(false)),         _xTj_(_rawTj_(true))); });
+  tryRun("src_pnego",  function () { cmpKeyed("src_pnego",  _xPnego_(_rawPnego_(false)),   _xPnego_(_rawPnego_(true))); });
+  tryRun("src_constr", function () { cmpKeyed("src_constr", _xConstr_(_rawConstr_(false)), _xConstr_(_rawConstr_(true))); });
+  tryRun("src_flow",   function () { cmpKeyed("src_flow",   _xFlow_(_rawFlow_(false)),     _xFlow_(_rawFlow_(true))); });
+  tryRun("src_ratown", function () { var A = _rawSrc_("src_ratown", false), B = _rawSrc_("src_ratown", true); lines.push("     หัว เดิม=[" + A[0].slice(0, 6).join("|") + "] ถัง=[" + B[0].slice(0, 6).join("|") + "]"); cmpKeyed("src_ratown", A, B); });
+  tryRun("src_reg",    function () { var A = _rawSrc_("src_reg", false),    B = _rawSrc_("src_reg", true);    lines.push("     หัว เดิม=[" + A[0].slice(0, 6).join("|") + "] ถัง=[" + B[0].slice(0, 6).join("|") + "]"); cmpKeyed("src_reg", A, B); });
+  tryRun("lic", function () {
+    var tz = SpreadsheetApp.openById(UPDATES_ID).getSpreadsheetTimeZone(), lss = SpreadsheetApp.openById("1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ");
+    Object.keys(TANK_LIC_TABS).forEach(function (src) {
+      var s1 = lss.getSheetByName(src), s2 = _tankSs_().getSheetByName(TANK_LIC_TABS[src]);
+      if (!s1 || !s2) { lines.push("❌ " + src + " ไม่เจอแท็บ (ต้นทาง " + !!s1 + " / ถัง " + !!s2 + ")"); return; }
+      var A = _licRows_(s1, tz), B = _licRows_(s2, tz), d = 0, cells = 0, samp = [];
+      var h = Math.max(A.length, B.length), w = Math.max(A[0].length, B[0].length);
+      for (var i = 0; i < h; i++) for (var j = 0; j < w; j++) { cells++; var x = norm((A[i] || [])[j]), y = norm((B[i] || [])[j]); if (x !== y) { d++; if (samp.length < 4) samp.push("แถว " + (i + 1) + " คอลัมน์ " + (j + 1) + " : [" + x.slice(0, 30) + "] → [" + y.slice(0, 30) + "]"); } }
+      lines.push((d === 0 ? "✅ " : "❌ ") + src + " : แถว เดิม " + A.length + " / ถัง " + B.length + " · คอลัมน์ เดิม " + A[0].length + " / ถัง " + B[0].length + " · ช่องต่าง " + d + "/" + cells);
+      samp.forEach(function (s) { lines.push("     " + s); });
+    });
+  });
+  var msg = lines.join("\n"); Logger.log(msg); return msg;
+}
+
 /** ถัง G แท็บ SLA → แถวรูปแบบเดียวกับ pub CSV เดิม (วันที่เดือนไทย "24-พ.ย.-23" · "ธ.ค.-26" · ขึ้นบรรทัดใหม่แบบ LF)
  *  ถังเป็นภาษาอังกฤษ ("24-Nov-23") → แปลงกลับเป็นไทย กันหน้าแอป/การเทียบ _changes เห็นทุกช่องเปลี่ยนรูปแบบ
  *  อ่านไม่ได้/แถวน้อยผิดปกติ/ไม่มีหัว Site Code → throw (syncAll เก็บสำเนาเดิมไว้ ไม่ล้าง) */
@@ -264,15 +427,9 @@ function _readTankSla_() {
   if (v.length < 50 || String((v[1] || [])[0] || "").indexOf("Site Code") < 0 || String((v[2] || [])[0] || "").charAt(0) === "#") {
     throw new Error("ถัง G แท็บ SLA ผิดปกติ (" + v.length + " แถว · A2=" + String((v[1] || [])[0] || "") + " · A3=" + String((v[2] || [])[0] || "") + ")");
   }
-  var EN2TH = { Jan: "ม.ค.", Feb: "ก.พ.", Mar: "มี.ค.", Apr: "เม.ย.", May: "พ.ค.", Jun: "มิ.ย.", Jul: "ก.ค.", Aug: "ส.ค.", Sep: "ก.ย.", Oct: "ต.ค.", Nov: "พ.ย.", Dec: "ธ.ค." };
-  var rx = /^(\d{1,2}-)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2,4})$/;
-  return v.map(function (r) {
-    return r.map(function (c) {
-      c = String(c).replace(/\r\n/g, "\n");
-      var m = c.trim().match(rx);
-      return m ? (m[1] || "") + EN2TH[m[2]] + "-" + m[3] : c;
-    });
-  });
+  var n = v.length;   // 27 พ.ย.: ตัดแถวว่างท้าย (IMPORTRANGE A1:CM2000 → เดิมส่ง 2000 แถว ~1,400 แถวว่าง = แอปโหลดหนักเปล่า ๆ)
+  while (n > 0 && v[n - 1].every(function (c) { return String(c).trim() === ""; })) n--;
+  return _en2thRows_(v.slice(0, n));
 }
 
 function syncAll() {
@@ -285,85 +442,58 @@ function syncAll() {
     _writeRows(ss, "src_sla", srows);
     log.push("src_sla=" + srows.length + " (ถัง G)");
   } catch (err) { log.push("src_sla FAIL:" + err); }   // พัง = เก็บสำเนาเดิมไว้ ไม่ลบ
+  function tg(k) { return USE_TANK[k] ? " (ถัง G)" : ""; }   // ป้ายใน _synced บอกว่าแหล่งไหนมาจากถัง
   SOURCES.forEach(function (s) {
+    var k = s.tab.replace("src_", "");
     try {
-      var rows = Utilities.parseCsv(UrlFetchApp.fetch(s.url, { muteHttpExceptions: true }).getContentText());
+      var rows = _rawSrc_(s.tab, !!USE_TANK[k]);
       var d = _diffTab(ss, s.tab, rows); if (d.length) allDiffs = allDiffs.concat(d);   // <== เทียบก่อนเขียนทับ
       _writeRows(ss, s.tab, rows);
-      log.push(s.tab + "=" + rows.length);
+      log.push(s.tab + "=" + rows.length + tg(k));
     } catch (err) {
       log.push(s.tab + " FAIL:" + err);   // ถ้าต้นฉบับพัง = เก็บสำเนาเดิมไว้ ไม่ลบ
     }
   });
-  try {   // ก่อสร้าง: ตัดเหลือ 6 คอลัมน์ (header + data จากแถว 4)
-    var craw = Utilities.parseCsv(UrlFetchApp.fetch(CONSTR_URL, { muteHttpExceptions: true }).getContentText());
-    var out = [["code", "name", "prov", "open", "active", "hide", "permit_submit", "send_ratkit"]];
-    for (var i = 3; i < craw.length; i++) {
-      var r = craw[i]; if (!(r[2] || "").toString().trim()) continue;
-      out.push(CONSTR_COLS.map(function (c) { return r[c] || ""; }));
-    }
+  try {   // ก่อสร้าง: ตัดเหลือ 8 คอลัมน์ (header + data จากแถว 4)
+    var out = _xConstr_(_rawConstr_(USE_TANK.constr));
     var dc = _diffTab(ss, "src_constr", out); if (dc.length) allDiffs = allDiffs.concat(dc);
     _writeRows(ss, "src_constr", out);
-    log.push("src_constr=" + out.length);
+    log.push("src_constr=" + out.length + tg("constr"));
   } catch (err) { log.push("src_constr FAIL:" + err); }
-  try {   // milestone flow: ตัดเหลือ name + 6 วันที่
-    var fraw = Utilities.parseCsv(UrlFetchApp.fetch(FLOW_URL, { muteHttpExceptions: true }).getContentText());
-    var fout = [["code", "send_legal", "legal_back", "sign_owner", "signed"]];
-    for (var i = 1; i < fraw.length; i++) {
-      var r = fraw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
-      fout.push(FLOW_COLS.map(function (c) { return r[c] || ""; }));
-    }
+  try {   // milestone flow: code + 4 วันที่
+    var fout = _xFlow_(_rawFlow_(USE_TANK.flow));
     var df = _diffTab(ss, "src_flow", fout); if (df.length) allDiffs = allDiffs.concat(df);
-    _writeRows(ss, "src_flow", fout); log.push("src_flow=" + fout.length);
+    _writeRows(ss, "src_flow", fout); log.push("src_flow=" + fout.length + tg("flow"));
   } catch (err) { log.push("src_flow FAIL:" + err); }
-  try {   // เจรจา: แท็บ Pipeline (16 คนทั้งทีม) → remap เป็น layout เดิม · ข้าม header 2 แถว
-    var nraw = Utilities.parseCsv(UrlFetchApp.fetch(NEGO_URL, { muteHttpExceptions: true }).getContentText());
-    var nhead = ["Site Code", "ชื่อสาขา", "จังหวัด", "เจรจา", "รูปแบบการอนุมัติ", "Main Status", "Sub status", "อุปสรรค/ปัญหา", "หมายเหตุปัญหา", "วันเซ็นสัญญาจริง"];
-    var nout = [nhead];
-    for (var i = 2; i < nraw.length; i++) {                 // ข้าม row0(กลุ่ม)+row1(ชื่อฟิลด์)
-      var r = nraw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
-      var o = ["", "", "", "", "", "", "", "", "", ""];
-      Object.keys(NEGO_MAP).forEach(function (k) { o[k] = r[NEGO_MAP[k]] || ""; });
-      nout.push(o);
-    }
+  try {   // เจรจา: แท็บ Site Nego (16 คนทั้งทีม) → remap เป็น layout เดิม · ข้าม header 2 แถว
+    var nout = _xNego_(_rawNego_(USE_TANK.nego));
     var dn = _diffTab(ss, "src_nego", nout); if (dn.length) allDiffs = allDiffs.concat(dn);
-    _writeRows(ss, "src_nego", nout); log.push("src_nego=" + nout.length);
+    _writeRows(ss, "src_nego", nout); log.push("src_nego=" + nout.length + tg("nego"));
   } catch (err) { log.push("src_nego FAIL:" + err); }
   try {   // tjLegal: ส่งเอกสารสัญญาให้ LG / LG Scan → [code, send, scan] (join ด้วย Site Code col0)
-    var traw = Utilities.parseCsv(UrlFetchApp.fetch(TJ_URL, { muteHttpExceptions: true }).getContentText());
-    var tout = [["code", "send_legal", "legal_scan"]];
-    for (var i = 1; i < traw.length; i++) {
-      var r = traw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
-      tout.push(TJ_COLS.map(function (c) { return r[c] || ""; }));
-    }
+    var tout = _xTj_(_rawTj_(USE_TANK.tj));
     var dt = _diffTab(ss, "src_tj", tout); if (dt.length) allDiffs = allDiffs.concat(dt);
-    _writeRows(ss, "src_tj", tout); log.push("src_tj=" + tout.length);
+    _writeRows(ss, "src_tj", tout); log.push("src_tj=" + tout.length + tg("tj"));
   } catch (err) { log.push("src_tj FAIL:" + err); }
   try {   // pnegoKt: วันนำเสนอ KT ใหม่ → [code, kt]
-    var praw = Utilities.parseCsv(UrlFetchApp.fetch(PNEGO_URL, { muteHttpExceptions: true }).getContentText());
-    var pout = [["code", "kt_date"]];
-    for (var i = 1; i < praw.length; i++) {
-      var r = praw[i]; var cd = (r[0] || "").toString().trim(); if (!cd) continue;
-      pout.push(PNEGO_COLS.map(function (c) { return r[c] || ""; }));
-    }
+    var pout = _xPnego_(_rawPnego_(USE_TANK.pnego));
     var dp = _diffTab(ss, "src_pnego", pout); if (dp.length) allDiffs = allDiffs.concat(dp);
-    _writeRows(ss, "src_pnego", pout); log.push("src_pnego=" + pout.length);
+    _writeRows(ss, "src_pnego", pout); log.push("src_pnego=" + pout.length + tg("pnego"));
   } catch (err) { log.push("src_pnego FAIL:" + err); }
-  try {   // ชีต "0. CJx Store Document_New" (private → openById) — ดึง 3 แท็บ: ใบอนุญาต + ภาษีป้าย + ภาษีที่ดิน
-    var LIC_ID = "1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ";
-    var lss = SpreadsheetApp.openById(LIC_ID);
+  try {   // ใบอนุญาต + ต่ออายุ + ภาษีป้าย + ภาษีที่ดิน: "0. CJx Store Document_New" หรือแท็บ SD ในถัง G (USE_TANK.lic)
+    var lss = USE_TANK.lic ? _tankSs_() : SpreadsheetApp.openById("1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ");
     var ltz = ss.getSpreadsheetTimeZone();
     [["src_lic", "ใบอนุญาต"], ["src_renew", "ต่ออายุใบอนุญาต"], ["src_tax_sign", "ภาษีป้าย@2569"], ["src_tax_land", "ภาษีที่ดินและสิ่งปลูกสร้าง@2569"]].forEach(function (pair) {
       try {
-        var sh = lss.getSheetByName(pair[1]);
+        // 27 พ.ย. 69: ต่ออายุ → อ่านต้นทางตรง (ชื่อแท็บมีเว้นวรรคนำ 2 ตัว) · แท็บถัง "SD ต่ออายุใบอนุญาต" สูตร IMPORTRANGE ล็อกช่วง A1:Y171
+        //   แต่ต้นทางมีถึง ~255 แถว → ถังขาด ~84 รายการ (Pipeline ก็อ่านแท็บถังนี้ — แก้สูตรในถังเมื่อจีอนุญาต แล้วค่อยกลับไปอ่านถัง)
+        var srcRenew = (pair[0] === "src_renew");
+        var sh = srcRenew ? SpreadsheetApp.openById("1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ").getSheetByName("  ต่ออายุใบอนุญาต")
+                          : lss.getSheetByName(USE_TANK.lic ? TANK_LIC_TABS[pair[1]] : pair[1]);
         if (!sh) { log.push(pair[0] + " NO-TAB"); return; }
-        var raw = sh.getDataRange().getValues();
-        var out = raw.map(function (row) { return row.map(function (c) {
-          if (c instanceof Date) return Utilities.formatDate(c, ltz, "yyyy-MM-dd");
-          return (c === null || c === undefined) ? "" : c.toString();
-        }); });
+        var out = _licRows_(sh, ltz);
         _writeRows(ss, pair[0], out);
-        log.push(pair[0] + "=" + out.length);
+        log.push(pair[0] + "=" + out.length + (srcRenew ? " (ต้นทาง)" : tg("lic")));
       } catch (e2) { log.push(pair[0] + " FAIL:" + e2); }
     });
   } catch (err) { log.push("lic-group FAIL:" + err); }
