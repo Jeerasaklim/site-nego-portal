@@ -485,15 +485,12 @@ function syncAll() {
     var ltz = ss.getSpreadsheetTimeZone();
     [["src_lic", "ใบอนุญาต"], ["src_renew", "ต่ออายุใบอนุญาต"], ["src_tax_sign", "ภาษีป้าย@2569"], ["src_tax_land", "ภาษีที่ดินและสิ่งปลูกสร้าง@2569"]].forEach(function (pair) {
       try {
-        // 27 พ.ย. 69: ต่ออายุ → อ่านต้นทางตรง (ชื่อแท็บมีเว้นวรรคนำ 2 ตัว) · แท็บถัง "SD ต่ออายุใบอนุญาต" สูตร IMPORTRANGE ล็อกช่วง A1:Y171
-        //   แต่ต้นทางมีถึง ~255 แถว → ถังขาด ~84 รายการ (Pipeline ก็อ่านแท็บถังนี้ — แก้สูตรในถังเมื่อจีอนุญาต แล้วค่อยกลับไปอ่านถัง)
-        var srcRenew = (pair[0] === "src_renew");
-        var sh = srcRenew ? SpreadsheetApp.openById("1z9T0nJkxvV3cGhhlrG-xVzLerY-qM5hw9z01KiXBQEQ").getSheetByName("  ต่ออายุใบอนุญาต")
-                          : lss.getSheetByName(USE_TANK.lic ? TANK_LIC_TABS[pair[1]] : pair[1]);
+        // 27 พ.ย. 69: แท็บถัง "SD ต่ออายุใบอนุญาต" เดิมสูตรล็อก A1:Y171 (ขาด ~84 แถว) → แก้สูตรในถังเป็น A1:Y แล้ว = อ่านถังได้ครบ
+        var sh = lss.getSheetByName(USE_TANK.lic ? TANK_LIC_TABS[pair[1]] : pair[1]);
         if (!sh) { log.push(pair[0] + " NO-TAB"); return; }
         var out = _licRows_(sh, ltz);
         _writeRows(ss, pair[0], out);
-        log.push(pair[0] + "=" + out.length + (srcRenew ? " (ต้นทาง)" : tg("lic")));
+        log.push(pair[0] + "=" + out.length + tg("lic"));
       } catch (e2) { log.push(pair[0] + " FAIL:" + e2); }
     });
   } catch (err) { log.push("lic-group FAIL:" + err); }
