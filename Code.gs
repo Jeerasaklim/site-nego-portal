@@ -232,7 +232,7 @@ var CONSTR_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNo
 var CONSTR_COLS = [2, 3, 5, 137, 138, 139, 63, 142];
 // แท็บ "ตารางรับส่งสัญญา กฎหมาย" — milestone contract/legal flow (join ด้วย Site Code col0 ตรงๆ)
 var FLOW_URL = "https://docs.google.com/spreadsheets/d/1cVFBJpP_C6XY5hM15pu71ioQO7JZ7pihRq1FJ-v-k1g/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent("ตารางรับส่งสัญญา กฎหมาย");
-var FLOW_COLS = [0, 11, 12, 16, 8];   // code, ส่งกฎหมาย, กฎหมายส่งกลับ, ส่งเจ้าของลงนาม, เซ็นจริง
+var FLOW_COLS = [0, 11, 12, -1, 7];   // code, ส่งกฎหมาย(11), กฎหมายส่งกลับ(12), ส่งเจ้าของลงนาม(-1 = ต้นทางไม่มีคอลัมน์นี้แล้ว → ว่าง), วันเซ็นสัญญาจริง(7) · แก้ 27 พ.ย. (เดิม 16=คอลัมน์ว่าง · 8="กำหนด เจรจา(HQ) รับสัญญา" ไม่ใช่วันเซ็น)
 // เจรจา: ดึงจากแท็บ nego ที่ App Pipeline ใช้จริง (1Fnlv8 gid=1549155273 = 16 คนทั้งทีม) — export CSV (ห้าม gviz มันตัดแถว)
 // แท็บนี้มี header 2 แถว (row0 กลุ่ม, row1 ชื่อฟิลด์) data เริ่ม row2 → remap คอลัมน์เป็น layout เดิมที่แอปอ่าน
 var NEGO_URL = "https://docs.google.com/spreadsheets/d/1Fnlv8S9uBVL_u_JpoajkNoI0zoyvDj5usCXx6uCtzIk/export?format=csv&gid=1549155273";
@@ -264,7 +264,7 @@ var TANK_LIC_TABS = { "ใบอนุญาต": "SD ใบอนุญาต",
 // 27 พ.ย. 69 compareTankSources: nego 0/4905 · tj 0/1084 · pnego 0/382 · constr 0/3822 · ratown 0/11300 · reg 0/14586 (+แถว RNV67-0560 มีแต่รหัส แอปข้ามเอง)
 //   · ใบอนุญาต 0/43440 · ภาษีป้าย 0/1624 · ภาษีที่ดิน 0/1044 → เปิดทั้งหมด
 //   flow: ต้นทางเดิม (1cVFBJ gviz) พัง "Could not parse text" มาตลอด → src_flow ว่าง · 27 พ.ย. จีกด Allow access ถัง↔1cVFBJ
-//     → สร้างแท็บถัง APP_รับส่งสัญญากฎหมาย แล้วเปิด · ⚠️ FLOW_COLS เดิม [0,11,12,16,8]: col8 = "กำหนด เจรจา(HQ) รับสัญญา" ไม่ใช่ "วันเซ็นจริง" (col7) · col16 หัวว่าง — ยังไม่แก้ รอเคาะ
+//     → สร้างแท็บถัง APP_รับส่งสัญญากฎหมาย แล้วเปิด · ⚠️ FLOW_COLS เดิม [0,11,12,16,8]: col8 = "กำหนด เจรจา(HQ) รับสัญญา" ไม่ใช่ "วันเซ็นจริง" (col7) · col16 หัวว่าง → แก้แล้ว 27 พ.ย. (จีสั่ง "แก้ src_flow") ดู FLOW_COLS
 var USE_TANK = { nego: true, tj: true, pnego: true, constr: true, flow: true, ratown: true, reg: true, lic: true };
 
 var _TANK_SS_ = null;
