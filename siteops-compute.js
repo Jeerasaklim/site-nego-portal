@@ -15,11 +15,11 @@
 /* ===== โมเดลกล่องเจรจา (nego) — ยกจาก App Pipeline "Site Nego" ให้ครบทุกกล่อง (28 ก.ย.26) =====
  * นับจากชีต SLA (src_sla) เป็นประชากรฐาน · แต่ละสาขาเข้ากล่องเดียว · กล่องข้างเส้น (pot/stuck/hold/siteex)
  * ไม่นับเป็น WIP · main flow = waitkt→sign→send→check→final · done = เข้าท่อน อ.1 (จบเจรจา) */
-var NBX={pot:"ความเป็นไปได้ต่ำ",stuck:"รอเอกสารหน่วยงานภายนอก",hold:"Hold เจรจา",siteex:"รอนำเสนอใหม่",waitkt:"รอเสนอใบปะหน้าใหม่",sign:"รอเซ็นสัญญา",send:"รอส่งตรวจสอบสัญญา",check:"รอ Legal ตรวจสอบสัญญา",final:"สัญญา Final",done:"ยื่น อ.1"};
+var NBX={pot:"ความเป็นไปได้ต่ำ",stuck:"ติดเงื่อนไข",hold:"Potential with cons",siteex:"รอนำเสนอใหม่",waitkt:"รอเสนอใบปะหน้าใหม่",sign:"รอเซ็นสัญญา",send:"รอส่งตรวจสอบสัญญา",check:"รอ Legal ตรวจสอบสัญญา",final:"สัญญา Final",done:"ยื่น อ.1"};
 var NEGO_STEPS=[
-  {ico:"🌱",stp:NBX.pot,task:"Potential with cons · ยังไม่เข้า WIP",sla:"ไม่จับ SLA"},
-  {ico:"⚠️",stp:NBX.stuck,task:"รอเอกสารหน่วยงานภายนอก",sla:"—"},
-  {ico:"⏸️",stp:NBX.hold,task:"Hold เจรจาราคา — พักเจรจาราคา/เงื่อนไข",sla:"รอปลดล็อก"},
+  {ico:"🌱",stp:NBX.pot,task:"สถานะเจรจา 8.ความเป็นไปได้ต่ำ · ยังไม่เข้า WIP",sla:"ไม่จับ SLA"},
+  {ico:"⚠️",stp:NBX.stuck,task:"สถานะเจรจา 2.เจรจา-ติดขัด · ยังไม่เข้า WIP",sla:"—"},
+  {ico:"⏸️",stp:NBX.hold,task:"สถานะเจรจา 0.Potential with cons · ยังไม่เข้า WIP",sla:"รอปลดล็อก"},
   {ico:"↩️",stp:NBX.siteex,task:"ส่งกลับสรรหา / รอนำเสนอทำเลใหม่ (09/12)",sla:"นอกเส้นทางเจรจาหลัก"},
   {ico:"📋",stp:NBX.waitkt,task:"เสนอ KT ลงนามใบปะหน้า · รอรอบเสนอใหม่",sla:"5/10 วันทำการ จาก max(อนุมัติรถตู้, วันเสนอ KT)"},
   {ico:"✍️",stp:NBX.sign,task:"KT อนุมัติแล้ว · รอเจ้าของที่ดินเซ็นสัญญา",sla:"5/10 วันทำการ จาก max(อนุมัติรถตู้, วันเสนอ KT)"},
@@ -107,8 +107,8 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  // --- predicates (ตรงกับ pipe.html) ---
  function nspace(s){return (s||"").replace(/\s+/g,"");}
  function nStat(r){return cc(r,53)||(nego2[cc(r,0)]||"");}                                 // :3059
- function nHold(r){return nspace(cc(r,6))===nspace("6.1 Hold เจรจาราคา");}                 // :3060
- function nSigned(r){var c=cc(r,0);var _s=nStat(r);return cc(r,26)!==""||(sign2[c]||"")!==""||!!nego_signed[c]||_s.indexOf("3.")===0||_s.indexOf("4.")===0||_s==="เปิดร้านแล้ว"||!!opened[c];} // เซ็นแล้ว = วันเซ็น OR สถานะ 3./4./เปิดแล้ว (กติกา 28 ก.ย. signed-rule-both-apps) :3061
+ function nHold(r){return nStat(r)==="0.Potential with cons";}   // 27 พ.ย. ตาม Pipeline isHoldNego (8 ต.ค.): สถานะ BB "0.Potential with cons" · เลิกใช้คอลัมน์ G "6.1 Hold เจรจาราคา"                 // :3060
+ function nSigned(r){var c=cc(r,0);var _s=nStat(r);return cc(r,26)!==""||(sign2[c]||"")!==""||!!nego_signed[c]||_s.indexOf("3.")===0||_s.indexOf("4.")===0||_s==="เปิดร้านแล้ว";}   /* 27 พ.ย.: ตัด opened[c] (ชีตก่อสร้าง) ออก ให้ตรง Pipeline isSigned */ // เซ็นแล้ว = วันเซ็น OR สถานะ 3./4./เปิดแล้ว (กติกา 28 ก.ย. signed-rule-both-apps) :3061
  function nNoO1(r){return cc(r,33)===""&&cc(r,34)==="";}                                    // :3169
  function nSendLg(r){var c=cc(r,0);return (tjSend[c]||"")||cc(r,29);}                       // :3066
  function nScanLg(r){var c=cc(r,0);return (tjScan[c]||"")||cc(r,30);}                       // :3067
@@ -121,7 +121,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    if(nRepro(exp))return NBX.siteex;
    if(nHold(r))return NBX.hold;
    var ns=nStat(r);
-   if(ns==="0.Potential with cons")return NBX.pot;
+   if(ns==="8.ความเป็นไปได้ต่ำ")return NBX.pot;                              // 27 พ.ย. ตาม Pipeline NEGO_POTENTIAL (8 ต.ค.)
    if(ns==="2.เจรจา-ติดขัด")return NBX.stuck;
    if(!nNoO1(r))return NBX.final;                                          // ยื่น อ.1 แล้ว = จบเจรจา (สัญญา Final เป็นกล่องจบ · อ.1 เป็นท่อนรัฐกิจ)
    if(!nSigned(r))return nWaitKt(r)?NBX.waitkt:NBX.sign;                    // :3175-3177
@@ -160,6 +160,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    if(st==="red"){task.due=iso(TODAY);task.dueLbl="เกิน SLA";}
    if(box!==NBX.final)task.w={track:"nego",field:"signed",lbl:"✅ เซ็นสัญญาแล้ว"};
    negT.push(task);}
+ var _negBase={};negT.forEach(function(t){_negBase[t.code]=1;});   // ประชากร approved ของเจรจา → ใช้เป็นฐานท่อนรังวัด
  var nPending=negT.filter(function(t){return t.step!==NBX.final&&t.step!==NBX.siteex;}).length; // ค้าง = ทุกกล่อง ยกเว้น สัญญา Final(จบเจรจา รวมยื่นอ.1)/รอนำเสนอใหม่(ตีกลับสรรหา)
  var nOver=negT.filter(function(t){return t.st=="red";}).length;
  var nSla2=negT.filter(function(t){return t.ag!=null&&t.step!==NBX.final;}).length;
@@ -316,6 +317,7 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  var svyT=[];
  for(i=hr+1;i<sla.length;i++){var r=sla[i];var c=cc(r,0);if(!c||opened[c])continue;
    var se8=cc(r,8),se9=cc(r,9);if((se8+" "+se9).indexOf("ยกเลิก")>=0)continue;      // ตัดที่ยกเลิก
+   if(!_negBase[c])continue;   // 27 พ.ย.: ฐานเดียวกับเจรจา/Pipeline (ผ่านด่าน G1-G3 อนุมัติรถตู้ · ตัดเปิด/ยกเลิก) — เดิมไม่กรอง → สาขายังไม่อนุมัติรถตู้หลุดเข้ารอรังวัด
    var _svb=negoBox(r);if(_svb===NBX.siteex||_svb===NBX.hold||_svb===NBX.pot||_svb===NBX.stuck)continue; // WIP gate: ตัดสาขาที่ยังค้างเจรจา (potential/stuck/hold/site-ex) ให้นับตรง base ของ Pipeline (:3144-3146)
    // ---- Pipeline survey logic เป๊ะ (computeCounts :3398-3399): base & noO1 · รอรังวัด=c12&c13 ว่าง · measure=surveyed & วัดค่าระดับ(c14) ว่าง ----
    if(!(cc(r,33)===""&&cc(r,34)===""))continue;                                        // noO1: ยื่น/ได้ อ.1 แล้ว = พ้นรังวัด → นับที่ท่อน อ.1 (ไม่ใช้ col56 เป็น "จบ" อีก)
