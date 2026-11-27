@@ -160,7 +160,8 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
    if(st==="red"){task.due=iso(TODAY);task.dueLbl="เกิน SLA";}
    if(box!==NBX.final)task.w={track:"nego",field:"signed",lbl:"✅ เซ็นสัญญาแล้ว"};
    negT.push(task);}
- var _negBase={};negT.forEach(function(t){_negBase[t.code]=1;});   // ประชากร approved ของเจรจา → ใช้เป็นฐานท่อนรังวัด
+ var _negBase={};negT.forEach(function(t){_negBase[t.code]=1;});
+ var _negWip={};negT.forEach(function(t){if(t.step!==NBX.siteex&&t.step!==NBX.hold&&t.step!==NBX.pot&&t.step!==NBX.stuck)_negWip[t.code]=1;});   // WIP base (= Pipeline base) → ฐานท่อน อ.1   // ประชากร approved ของเจรจา → ใช้เป็นฐานท่อนรังวัด
  var nPending=negT.filter(function(t){return t.step!==NBX.final&&t.step!==NBX.siteex;}).length; // ค้าง = ทุกกล่อง ยกเว้น สัญญา Final(จบเจรจา รวมยื่นอ.1)/รอนำเสนอใหม่(ตีกลับสรรหา)
  var nOver=negT.filter(function(t){return t.st=="red";}).length;
  var nSla2=negT.filter(function(t){return t.ag!=null&&t.step!==NBX.final;}).length;
@@ -181,7 +182,8 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  var ratT=[];
  var regRk={};for(var ri=1;ri<reg.length;ri++){var rr0=reg[ri];var rc0=cc(rr0,0);if(rc0&&cc(rr0,3))regRk[rc0]=cc(rr0,3);}   // Pipeline ทะเบียนและรัฐกิจ Column D = ผู้รับผิดชอบ
  Object.keys(cand).forEach(function(c){
-   if(opened[c])return;                               // ก่อสร้างเปิดแล้ว = พ้นท่อน อ.1
+   if(!_negWip[c])return;   // 27 พ.ย.: ฐานเดียวกับ Pipeline afterCohort = WIP เจรจา (ผ่านอนุมัติรถตู้ · ตัดยกเลิก/"01.เปิดแล้ว" ตาม SLA · ตัด Potential with cons/ความเป็นไปได้ต่ำ/ติดเงื่อนไข/รอนำเสนอใหม่)
+                            //   เดิมตัดตามชีตก่อสร้าง (opened) + ไม่ตัดยกเลิก → ค้าง CJX68-0104 (ยกเลิก) · นับเกิน CJX69-0353 (ความเป็นไปได้ต่ำ) · ขาด 2 สาขาที่ได้ อ.1 แล้วและก่อสร้างลงวันเปิด
    var stp=o1step(c);var prov=cand[c].prov||rkProv[c]||cprov[c]||"";var own=regRk[c]||rkOwn[c]||"(ไม่ระบุ)";var wv=!!SWAI[c]&&!SGOT[c];
    var st,sx,sk;
    if(SGOT[c]){st="done";sx=(wv?"ได้ อ.1 ✓":"ได้ อ.1 ✓");sk=[3,0];}
