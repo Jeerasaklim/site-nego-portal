@@ -423,7 +423,7 @@ tbody tr:hover .gobtn{background:var(--accent);color:#fff;border-color:var(--acc
 <div class="scrim" id="scrim" onclick="closeD()"></div><div class="drawer" id="drawer"></div>
 <div class="tmscrim" id="tmscrim" onclick="closeTrackModal()"></div><div class="tmodal" id="tmodal"></div>
 <div id="login"></div>
-<script src="siteops-compute.js?v=20261127o1b"></script>
+<script src="siteops-compute.js?v=20261127o1m"></script>
 <!-- ↑ กติกาคิดสถานะ (compute + ตัวช่วย) ย้ายไป siteops-compute.js — ต้องโหลดก่อนสคริปต์หลัก (NBX/TODAY ถูกใช้ตอน parse) -->
 <script>
 var NOTES_WH="https://script.google.com/macros/s/AKfycbwpSe8-xhAr7sT24kVUZc8FAWxBPOWyD-a5EiTjqZ9dvK8P7u97mcKqYnDn5WAjy7k_rg/exec";
@@ -497,9 +497,12 @@ function kpis(team){var over=team.filter(function(t){return t.st==="red";}).leng
    return [{v:pend,l:"📄 งานเจรจาค้าง",f:{k:"pending"}},{v:over,l:"🔴 เกิน SLA",c:"bad",f:{k:"red"}},{v:atsign,l:"✍️ รอเซ็นสัญญา",f:{step:NBX.sign}},{v:sg,l:"✅ เซ็นแล้ว",c:"good",f:{k:"signed"}},{v:pct+"%",l:"อัตราเซ็น"}];}
  if(MODE==="survey"){var p=DATA.perf.survey;return [{v:p.wait,l:"📍 รอรังวัด",f:{step:"รอรังวัด"}},{v:over,l:"🔴 เกิน SLA 10 วันทำการ",c:"bad",f:{k:"red"}},{v:p.appoint,l:"📅 นัดวันแล้ว",c:"warn",f:{step:"นัดวันรังวัด"}},{v:p.measured,l:"📐 รังวัดแล้ว รอส่งผล",f:{step:"รังวัด"}},{v:p.done,l:"✅ ส่งให้ก่อสร้าง",c:"good",f:{step:fin}}];}
  if(MODE==="ratkit"&&RATSUB==="reg"){var done=team.filter(function(t){return t.st==="done";}).length;return [{v:team.length,l:"📋 สาขากำลังทำทะเบียน",f:{k:"all"}},{v:over,l:"🔴 เลยเดดไลน์ D-day",c:"bad",f:{k:"red"}},{v:near,l:"🟠 ใกล้ D-day ≤7 วัน",c:"warn",f:{k:"amber"}},{v:done,l:"✅ ทะเบียนครบ",c:"good",f:{step:fin}},{v:team.length-done,l:"ยังไม่จบ",f:{k:"pending"}}];}
- var trkStep=(S[3]&&S[3].stp);var trk=team.filter(function(t){return t.step===trkStep;}).length;var wv=team.filter(function(t){return t.waiver;}).length;
- return [{v:team.length-signed-trk,l:"📑 ติดตามเอกสาร / เตรียม"},{v:trk,l:"🔎 ติดตาม อ.1",c:"warn",f:{step:trkStep}},{v:over,l:"🔴 เกิน SLA",c:"bad",f:{k:"red"}},{v:signed,l:"✅ อ.1 ออกแล้ว",c:"good",f:{step:fin}},{v:wv,l:"🏗️ อนุโลม",c:"warn",f:{k:"waiver"}}];}
-function railNodeHtml(ss,i,team){var s=ss[i];var list=team.filter(function(t){return t.step===s.stp;});var ov2=list.filter(function(t){return t.st==="red";}).length;var fin=(s.stp===md().final);
+ var trkStep=(S[6]&&S[6].stp),waiStep=(S[7]&&S[7].stp);var trk=team.filter(function(t){return t.step===trkStep;}).length;var wv=team.filter(function(t){return t.step===waiStep;}).length;
+ return [{v:team.length-signed-trk-wv,l:"📑 ก่อนยื่น อ.1",f:{k:"pre"}},{v:trk,l:"🔎 ยื่นแล้ว · รอใบ",c:"warn",f:{step:trkStep}},{v:over,l:"🔴 เกิน SLA",c:"bad",f:{k:"red"}},{v:wv,l:"🏗️ อนุโลม",c:"warn",f:{step:waiStep}},{v:signed,l:"✅ ได้ อ.1 แล้ว",c:"good",f:{step:fin}}];}
+/* 27 พ.ย.: 1 งานอยู่ได้หลายกล่อง (อ.1 ก่อนยื่นตาม Pipeline) → inStep/stIn */
+function inStep(t,stp){return t.step===stp||(t.boxes&&t.boxes.indexOf(stp)>=0);}
+function stIn(t,stp){return (t.boxSt&&t.boxSt[stp])||t.st;}
+function railNodeHtml(ss,i,team){var s=ss[i];var list=team.filter(function(t){return inStep(t,s.stp);});var ov2=list.filter(function(t){return stIn(t,s.stp)==="red";}).length;var fin=(s.stp===md().final);
  return '<div class="node'+(ov2>0?' hot':'')+((MODE==="nego"&&NEGO_SIDE[s.stp])?' danger':'')+(fin?' fin':'')+(ACTIVE===s.stp?' on':'')+'" data-step="'+esc(s.stp)+'" onclick="setStep('+i+')"><div class="nh"><span class="ni">'+s.ico+'</span><span class="nt">'+s.stp+'</span><span class="nn tnum">'+list.length+'</span></div><div class="ntask">'+s.task+'</div><div class="nsla"><span class="chip">⏱ '+s.sla+'</span>'+(ov2>0?'<span class="chip red">🔴 เกิน '+ov2+'</span>':'')+'</div></div>';}
 function render(){
  document.getElementById("upd").textContent=DATA.updated;
@@ -542,7 +545,7 @@ function render(){
 }
 function sfield(x){return (x.substat&&x.substat!=="—")?x.substat:x.stat;}
 function applyF(t,skip){
- if(ACTIVE&&skip!=="step")t=t.filter(function(x){return x.step===ACTIVE;});
+ if(ACTIVE&&skip!=="step")t=t.filter(function(x){return inStep(x,ACTIVE);});
  if(FCAT&&MODE==="nego"&&skip!=="cat")t=t.filter(function(x){return blockerCat(x.stat)===FCAT;});
  if(FOWN&&skip!=="own")t=t.filter(function(x){return (x.owner||"(ไม่ระบุ)")===FOWN;});
  if(FSTAT&&skip!=="stat")t=t.filter(function(x){return sfield(x)===FSTAT;});
@@ -556,6 +559,7 @@ function visRows(){var t=applyF(tasksFor(),"");
  else if(KFILT==="done")t=t.filter(function(x){return x.step===md().final;});
  else if(KFILT==="pending")t=t.filter(function(x){return x.step!==md().final&&(MODE!=="nego"||(x.step!==NBX.final&&x.step!==NBX.siteex));});
  else if(KFILT==="signed")t=t.filter(function(x){return x.signed;});
+ else if(KFILT==="pre"){var _pre=md().steps.slice(0,6).map(function(z){return z.stp;});t=t.filter(function(x){return _pre.indexOf(x.step)>=0;});}   // อ.1 ก่อนยื่น (6 กล่องแรก)
  else if(KFILT==="waiver")t=t.filter(function(x){return x.waiver;});
  return t.slice().sort(bySk);}
 function kpiFilter(i){var f=(window._kp&&window._kp[i])?window._kp[i].f:null;if(!f)return;
@@ -599,6 +603,12 @@ function openSite(code,bkt,trk){bkt=bkt||md();var _all=bkt.tasks,t=null;for(var 
      for(var j=pstart;j<ss.length;j++){var cls=(j<ci?"done":(j===ci?"active":"pending"));var bul=(j<ci?"✓":(j-pstart+1));
        b+='<div class="snode '+cls+'"><span class="sbullet">'+bul+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+(j===ci?"👉 "+ss[j].task:ss[j].task)+'</div></div></div>';}
    }
+ }else if(t.boxes&&ss.length===9){   // อ.1 (27 พ.ย.): 6 กล่องก่อนยื่นเป็นงานคู่ขนาน → ไฮไลต์ทุกกล่องที่ค้าง ไม่ติ๊ก ✓ เรียงเส้น · หลังยื่นค่อยเป็นลำดับ
+   var _post=ci>=6;
+   for(var j=0;j<ss.length;j++){var cur=t.boxes.indexOf(ss[j].stp)>=0;
+     var cls=cur?"active":((_post&&(j<6||(j===6&&ci>6)))?"done":"pending");   // หลังยื่น: ก่อนยื่น 6 กล่อง + "ยื่นแล้ว" = ผ่านแล้ว · อนุโลมไม่ติ๊ก (ทางเลือก ไม่ใช่ขั้นบังคับ)
+     var bul=(cls==="done"?"✓":(j+1));
+     b+='<div class="snode '+cls+'"><span class="sbullet">'+bul+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+(cur?"👉 "+ss[j].task+(t.boxSt&&t.boxSt[ss[j].stp]&&t.boxSt[ss[j].stp]!=="none"?" · SLA "+({red:"🔴 เกิน",amber:"🟠 ครบพอดี",green:"🟢 ตรง"}[t.boxSt[ss[j].stp]]||""):""):ss[j].task)+'</div></div></div>';}
  }else{
    for(var j=0;j<ss.length;j++){var cls=(j<ci?"done":(j===ci?"active":"pending"));var bul=(j<ci?"✓":(j+1));
      b+='<div class="snode '+cls+'"><span class="sbullet">'+bul+'</span><div class="sc"><div class="st">'+ss[j].ico+' '+ss[j].stp+'</div><div class="sd">'+(j===ci?"👉 "+ss[j].task:ss[j].task)+'</div></div></div>';}
@@ -949,7 +959,7 @@ function perfNeg(p){var b=lensH("📊 มุมงาน");
  b+=pdelay("🏗️",p.nego.over+" ไซต์เกิน SLA เจรจา (วันทำการ)","เกิน SLA = เริ่มก่อสร้าง/ยื่น อ.1 ช้า");
  return b;}
 function perfO1(p){var o=DATA.ratkit.o1.tasks,S=DATA.ratkit.o1.steps;var b=lensH("📊 มุมงาน");
- b+='<div class="kpis k4">'+kpiC(p.ratkit.prep,"📑 ติดตามเอกสาร","pp")+kpiC(p.ratkit.wait,"🔎 ยื่น · ติดตาม อ.1","warn")+kpiC(p.ratkit.got,"✅ อ.1 ออกแล้ว","good")+kpiC(p.ratkit.waiver,"🏗️ อนุโลม","warn")+'</div>';
+ b+='<div class="kpis k4">'+kpiC(p.ratkit.prep,"📑 ก่อนยื่น อ.1","pp")+kpiC(p.ratkit.wait,"🔎 ยื่นแล้ว · รอใบ","warn")+kpiC(p.ratkit.got,"✅ ได้ อ.1 แล้ว","good")+kpiC(p.ratkit.waiver,"🏗️ อนุโลม","warn")+'</div>';
  var cnts=S.map(function(s){return pcnt(o,s.stp);});var mx=Math.max.apply(null,cnts)||1;
  b+='<div class="pfun">'+S.map(function(s,i){return pfrow(s.ico+" "+s.stp,cnts[i],Math.round(100*cnts[i]/mx),i===S.length-1?"done":(cnts[i]===mx&&mx>0?"hot":""),"drillO1Step(\''+s.stp+'\')");}).join("")+'</div>';
  b+=lensH("🧑 มุมรายคน — ทีมรัฐกิจ (คลิกดูงาน)");
@@ -1016,7 +1026,7 @@ function slaBarChart(){
  return b;}
 function dbStages(tasks,ss,finalStp){
  var maxc=1,rows=[];
- for(var i=0;i<ss.length;i++){var s=ss[i];if(s.stp===finalStp)continue;var list=tasks.filter(function(t){return t.step===s.stp;});var ov=list.filter(function(t){return t.st==="red";}).length;if(list.length>maxc)maxc=list.length;rows.push({lbl:s.stp,n:list.length,ov:ov});}
+ for(var i=0;i<ss.length;i++){var s=ss[i];if(s.stp===finalStp)continue;var list=tasks.filter(function(t){return inStep(t,s.stp);});var ov=list.filter(function(t){return stIn(t,s.stp)==="red";}).length;if(list.length>maxc)maxc=list.length;rows.push({lbl:s.stp,n:list.length,ov:ov});}
  if(!rows.length)return '<div class="dempty">ไม่มีงานค้าง 🎉</div>';
  return '<div class="dstage">'+rows.map(function(r){var w=Math.round(r.n/maxc*100);var ovw=r.n?Math.round(r.ov/r.n*100):0;return '<div class="dsrowb"><div class="dslbl">'+esc(r.lbl)+'</div><div class="dstrk"><span class="dsfill" style="width:'+Math.max(w,r.n?4:0)+'%"><i class="segov" style="width:'+ovw+'%"></i><i class="segok" style="width:'+(100-ovw)+'%"></i></span></div><div class="dsval"><b>'+r.n+'</b>'+(r.ov?'<span class="ov">เกิน '+r.ov+'</span>':'')+'</div></div>';}).join("")+'</div>';}
 function dbUrgent(tasks,trk,finalStp){
@@ -1043,7 +1053,7 @@ function dashNeg(p){var t=DATA.nego.tasks,ss=DATA.nego.steps,fin=DATA.nego.final
  return b;}
 function dashO1(p){var t=DATA.ratkit.o1.tasks,ss=DATA.ratkit.o1.steps,fin=DATA.ratkit.o1.final;
  var over=t.filter(function(x){return x.st==="red";}).length;
- var b='<div class="kpis k4">'+kpiC(p.ratkit.got,"✅ อ.1 ออกแล้ว","good")+kpiC(p.ratkit.wait,"🔎 ยื่น/ติดตาม อ.1","warn")+kpiC(over,"🔴 เกิน SLA","bad")+kpiC(p.ratkit.waiver,"🏗️ อนุโลม","")+'</div>';
+ var b='<div class="kpis k4">'+kpiC(p.ratkit.got,"✅ ได้ อ.1 แล้ว","good")+kpiC(p.ratkit.wait,"🔎 ยื่นแล้ว · รอใบ","warn")+kpiC(over,"🔴 เกิน SLA","bad")+kpiC(p.ratkit.waiver,"🏗️ อนุโลม","")+'</div>';
  b+='<div class="dsec"><span class="dic">📊</span>งานค้างแต่ละขั้น <span class="dsub">แถบแดง = เกิน SLA</span></div>'+dbStages(t,ss,fin);
  b+='<div class="dsec"><span class="dic">🔥</span>ต้องเร่งด่วนที่สุด <span class="dsub">ค้างนานสุด · คลิกดูสาขา</span></div>'+dbUrgent(t,'o1',fin);
  return b;}

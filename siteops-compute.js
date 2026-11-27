@@ -165,48 +165,67 @@ function compute(neg,sla,reg,constr,ratown,upd,flow,lic,taxSign,taxLand,tj,pnego
  var nPending=negT.filter(function(t){return t.step!==NBX.final&&t.step!==NBX.siteex;}).length; // ค้าง = ทุกกล่อง ยกเว้น สัญญา Final(จบเจรจา รวมยื่นอ.1)/รอนำเสนอใหม่(ตีกลับสรรหา)
  var nOver=negT.filter(function(t){return t.st=="red";}).length;
  var nSla2=negT.filter(function(t){return t.ag!=null&&t.step!==NBX.final;}).length;
- // ================= อ.1 (5 step) =================
- var A_DOC="ติดตามเอกสาร",A_SUB="ยื่นเอกสาร",A_GOV="ติดตามรัฐกิจยื่น อ.1",A_TRK="ติดตาม อ.1",A_OK="เอกสาร อ.1 ออก (จบ)";
- var A_ORD={};A_ORD[A_DOC]=0;A_ORD[A_SUB]=1;A_ORD[A_GOV]=2;A_ORD[A_TRK]=3;A_ORD[A_OK]=4;var OF=A_OK;
- var RAT_STEPS=[{ico:"📑",stp:A_DOC,task:"สัญญาเซ็นแล้ว · ตามเอกสาร (น.2-น.4 / แบบก่อสร้าง) ให้ครบก่อนยื่น",sla:"เตรียมก่อนยื่น (ไม่จับ SLA)"},
-   {ico:"📤",stp:A_SUB,task:"เอกสารครบ · ยื่นชุดขอ อ.1 ต่อหน่วยงาน",sla:"เอกสารครบ = ยื่นได้"},
-   {ico:"🏛️",stp:A_GOV,task:"ติดตามหน่วยงานรัฐยื่นเรื่องขอ อ.1",sla:"ก่อนยื่นจริง (ไม่จับ SLA)"},
-   {ico:"🔎",stp:A_TRK,task:"ยื่น อ.1 แล้ว · ติดตามผลใบอนุญาต",sla:"ตจว. 45 / กทม. 60 วัน (จากวันยื่น)"},
+ // ================= อ.1 — 9 กล่องตาม Pipeline แท็บ อ.1 (app/src/o1-tab.js PRE/POST) · 27 พ.ย. 69 จีสั่ง "ทำเลย" =================
+ // ก่อนยื่น 6 กล่อง = กล่องหน้า Overall (calc-engine computeCounts) · 1 สาขาอยู่ได้หลายกล่อง (t.boxes) เหมือน Pipeline (นับรายกล่อง)
+ // หลังยื่น 3 กล่อง = After อ.1 (ยื่นแล้ว·รอใบ / อนุโลม / ได้ อ.1) · ฐาน = WIP เจรจา (_negWip = Pipeline base/afterCohort)
+ var A_CF="สัญญา Final",A_P7="แบบขออนุญาต Final",A_N4="รอคัด น.4",A_N42="เอกสาร น.2+น.4 Final",A_WO="เตรียมเอกสาร ยื่น อ.1",A_RO="รอยื่น อ.1",
+     A_TRK="ยื่นแล้ว · รอใบอนุญาต อ.1",A_WAI="ได้รับอนุโลม อ.1 (เข้าก่อสร้างได้ · รอใบจริง)",A_OK="ได้ อ.1 แล้ว";var OF=A_OK;
+ var A_PRE=[A_CF,A_P7,A_N4,A_N42,A_WO,A_RO];
+ var RAT_STEPS=[{ico:"📄",stp:A_CF,task:"Legal Scan แล้ว · ยังไม่ครบชุดเตรียม อ.1",sla:"—"},
+   {ico:"📐",stp:A_P7,task:"ผังอนุมัติครบ + ยื่นแบบขออนุญาตแล้ว",sla:"—"},
+   {ico:"📑",stp:A_N4,task:"ยังไม่มี น.4 / ยังไม่เข้าคณะกรรมการผัง",sla:"10 วันทำการ จากวันอนุมัติรถตู้"},
+   {ico:"📚",stp:A_N42,task:"มี น.4 + ส่งเอกสารรัฐกิจแล้ว · ยังไม่ครบชุด",sla:"—"},
+   {ico:"🗂️",stp:A_WO,task:"ชุดเอกสารครบ · รอส่งให้รัฐกิจ",sla:"3 วันทำการ จาก max(สแกนสัญญา/ยื่นแบบ/ส่งรัฐกิจ)"},
+   {ico:"📤",stp:A_RO,task:"ส่งเอกสารให้รัฐกิจแล้ว · รอยื่น อ.1",sla:"5 วันทำการ จากวันส่งเอกสารให้รัฐกิจ"},
+   {ico:"🔎",stp:A_TRK,task:"ยื่น อ.1 แล้ว · รอใบอนุญาต",sla:"ต่างจังหวัด 45 / กทม. 60 วันปฏิทิน จากวันยื่น"},
+   {ico:"🏗️",stp:A_WAI,task:"ได้รับอนุโลม · เข้าก่อสร้างได้ · รอใบจริง",sla:"—"},
    {ico:"✅",stp:A_OK,task:"ได้ใบ อ.1 · ส่งต่อทีมก่อสร้าง",sla:"จบท่อน อ.1"}];
- function o1cur(c){var rr=0;if(SSTP[c]&&A_ORD[SSTP[c]]!=null)rr=Math.max(rr,A_ORD[SSTP[c]]);if(SSUB[c])rr=Math.max(rr,A_ORD[A_TRK]);if(SGOT[c])rr=A_ORD[A_OK];return rr;}
- function o1step(c){var rr=o1cur(c);for(var s in A_ORD)if(A_ORD[s]==rr)return s;return A_DOC;}
- var cand={};
- for(var sc in signedCodes)cand[sc]={name:signedCodes[sc].name,prov:signedCodes[sc].prov};  // เข้าท่อน อ.1 = เซ็นแล้ว (เกณฑ์เดียวกับ nego/Pipeline) ไม่ใช่ Main Status 3/4 อย่างเดียว
- for(var cs in SSUB)if(!cand[cs])cand[cs]={name:cname[cs]||cs,prov:rkProv[cs]||cprov[cs]||""};
- for(var cgg in SGOT)if(!cand[cgg])cand[cgg]={name:cname[cgg]||cgg,prov:rkProv[cgg]||cprov[cgg]||""};
+ var rkSendDoc={};for(i=rhr+1;i<ratown.length;i++){var rr3=ratown[i];var rc3=cc(rr3,0);if(rc3&&cc(rr3,18))rkSendDoc[rc3]=cc(rr3,18);}   // Pipeline RATKIT_COL_SEND_DOC=18
+ function _wdMax(arr){var best=null;arr.forEach(function(v){var d=pdate(v||"");if(d&&(!best||d>best))best=d;});return best?wdH(best,TODAY):null;}
  var ratT=[];
  var regRk={};for(var ri=1;ri<reg.length;ri++){var rr0=reg[ri];var rc0=cc(rr0,0);if(rc0&&cc(rr0,3))regRk[rc0]=cc(rr0,3);}   // Pipeline ทะเบียนและรัฐกิจ Column D = ผู้รับผิดชอบ
- Object.keys(cand).forEach(function(c){
-   if(!_negWip[c])return;   // 27 พ.ย.: ฐานเดียวกับ Pipeline afterCohort = WIP เจรจา (ผ่านอนุมัติรถตู้ · ตัดยกเลิก/"01.เปิดแล้ว" ตาม SLA · ตัด Potential with cons/ความเป็นไปได้ต่ำ/ติดเงื่อนไข/รอนำเสนอใหม่)
-                            //   เดิมตัดตามชีตก่อสร้าง (opened) + ไม่ตัดยกเลิก → ค้าง CJX68-0104 (ยกเลิก) · นับเกิน CJX69-0353 (ความเป็นไปได้ต่ำ) · ขาด 2 สาขาที่ได้ อ.1 แล้วและก่อสร้างลงวันเปิด
-   var stp=o1step(c);var prov=cand[c].prov||rkProv[c]||cprov[c]||"";var own=regRk[c]||rkOwn[c]||"(ไม่ระบุ)";var wv=!!SWAI[c]&&!SGOT[c];
-   var st,sx,sk;
-   if(SGOT[c]){st="done";sx=(wv?"ได้ อ.1 ✓":"ได้ อ.1 ✓");sk=[3,0];}
-   else if(SSUB[c]&&A_ORD[stp]>=A_ORD[A_TRK]){var sd=pdate(SSUB[c]);var lim=bkk(prov)?60:45;var dl=sd?daysBetween(new Date(sd.getTime()+lim*86400000),TODAY):null;
-     if(dl==null){st="none";sx="รอผล";sk=[2,0];}else if(dl<0){st="red";sx="เกิน SLA "+(-dl)+" วัน";sk=[0,dl];}else if(dl<=7){st="amber";sx="เหลือ "+dl+" วัน";sk=[1,dl];}else{st="green";sx="เหลือ "+dl+" วัน";sk=[1,dl];}}
-   else{st="none";sx=(stp==A_DOC?"ตามเอกสาร":"เตรียมยื่น");sk=[2,0];}
-   var t={code:c,name:cand[c].name||cname[c]||c,prov:prov,owner:own,step:stp,st:st,slatxt:sx,sk:sk,waiver:wv,kt:"",stat:(wv?"อนุโลม":""),
-     why:(SGOT[c]?"ได้ใบ อ.1 แล้ว":(wv?"ได้รับอนุโลม · ก่อสร้างก่อนได้":(SSUB[c]?"ยื่น อ.1 แล้ว รอผล":"สัญญาเซ็นแล้ว · เตรียมยื่น")))};
-   if(!SGOT[c]&&SSUB[c]&&A_ORD[stp]>=A_ORD[A_TRK]){var _sd=pdate(SSUB[c]);if(_sd){t.due=iso(new Date(_sd.getTime()+(bkk(prov)?60:45)*86400000));t.dueLbl="ครบ SLA อ.1";}}
-   if(!SGOT[c]){
-     if(A_ORD[stp]<A_ORD[A_SUB])t.w={track:"o1",field:"step",value:A_SUB,lbl:"📤 เอกสารครบ / ยื่นเอกสารแล้ว"};
-     else if(stp==A_SUB)t.w={track:"o1",field:"step",value:A_GOV,lbl:"🏛️ รัฐยื่นเรื่องแล้ว"};
-     else if(stp==A_GOV)t.w={track:"o1",field:"submit",value:"",lbl:"🔎 ยื่น อ.1 แล้ว"};
+ var _o1seen={};
+ for(i=hr+1;i<sla.length;i++){var r=sla[i];var c=cc(r,0);if(!c||_o1seen[c]||!_negWip[c])continue;_o1seen[c]=1;   // ฐานเดียวกับ Pipeline afterCohort
+   var prov=cc(r,3)||rkProv[c]||cprov[c]||"";var own=regRk[c]||rkOwn[c]||"(ไม่ระบุ)";
+   var sub=SSUB[c]||"",got=!!SGOT[c],wv=!!SWAI[c]&&!got;
+   var boxes=[],bst={},bsx={},step,st,sx,sk,due="",dueLbl="";
+   if(sub||got){                                                                 // หลังยื่น (Pipeline: submit_o1 หรือ got_o1)
+     if(got){step=A_OK;st="done";sx="ได้ อ.1 ✓";sk=[3,0];}
+     else if(wv){step=A_WAI;st="none";sx="อนุโลม · รอใบจริง";sk=[2,0];}
+     else{step=A_TRK;var sd=pdate(sub);var lim=bkk(prov)?60:45;var dl=sd?daysBetween(new Date(sd.getTime()+lim*86400000),TODAY):null;
+       if(dl==null){st="none";sx="รอผล";sk=[2,0];}else if(dl<0){st="red";sx="เกิน SLA "+(-dl)+" วัน";sk=[0,dl];}else if(dl<=7){st="amber";sx="เหลือ "+dl+" วัน";sk=[1,dl];}else{st="green";sx="เหลือ "+dl+" วัน";sk=[1,dl];}
+       if(sd){due=iso(new Date(sd.getTime()+lim*86400000));dueLbl="ครบ SLA อ.1";}}
+     boxes=[step];bst[step]=st;
+   }else{                                                                        // ก่อนยื่น: กล่องหน้า Overall (computeCounts :3364-3413)
+     var scan=nScanLg(r),pmt=permitSub[c]||"",srk=sendRatkit[c]||"",hasN4d=(cc(r,20)!==""||(ratkitN4[c]||"")!==""||cc(r,21)!=="");
+     var prep=nInO1Prep(r),surv=(cc(r,12)!==""||cc(r,13)!==""),ready=(scan!==""&&pmt!==""&&hasN4d&&srk!=="");
+     var add=function(bx,ag,tgt){boxes.push(bx);if(tgt==null){bst[bx]="none";bsx[bx]="—";return;}
+       if(ag==null){bst[bx]="none";bsx[bx]="—";}else if(ag>tgt){bst[bx]="red";bsx[bx]="เกิน SLA "+(ag-tgt)+" วันทำการ ("+ag+"/"+tgt+")";}else if(ag===tgt){bst[bx]="amber";bsx[bx]="ครบ SLA พอดี ("+ag+"/"+tgt+")";}else{bst[bx]="green";bsx[bx]="ตรง SLA ("+ag+"/"+tgt+")";}};
+     if(scan!==""&&!prep)add(A_CF);
+     if(surv&&cc(r,21)!==""&&cc(r,22)!==""&&pmt!==""&&!prep)add(A_P7);
+     if(cc(r,20)===""&&(ratkitN4[c]||"")===""&&cc(r,21)==="")add(A_N4,wdH(pdate(cc(r,11)),TODAY),10);
+     if(hasN4d&&srk!==""&&!prep)add(A_N42);
+     if(ready&&!(rkSendDoc[c]||""))add(A_WO,_wdMax([scan,pmt,srk]),3);
+     if(ready&&(rkSendDoc[c]||""))add(A_RO,_wdMax([rkSendDoc[c]]),5);
+     if(!boxes.length)continue;                                                  // ไม่อยู่ในกล่องไหน = ไม่ใช่งาน อ.1 (เหมือน Pipeline)
+     var RK={red:0,amber:1,green:2,none:3};step=boxes[0];st="none";boxes.forEach(function(bx){if(RK[bst[bx]]<RK[st]){st=bst[bx];}});
+     var wb=boxes.filter(function(bx){return bst[bx]===st;})[0]||step;sx=bsx[wb]||"—";sk=(st==="red"?[0,0]:st==="amber"?[1,0]:[2,0]);
+   }
+   var t={code:c,name:cc(r,2)||cname[c]||c,prov:prov,owner:own,step:step,boxes:boxes,boxSt:bst,st:st,slatxt:sx,sk:sk,waiver:wv,kt:"",stat:(wv?"อนุโลม":""),
+     why:(got?"ได้ใบ อ.1 แล้ว":(wv?"ได้รับอนุโลม · ก่อสร้างก่อนได้":(sub?"ยื่น อ.1 แล้ว รอผล":"ก่อนยื่น · "+boxes.join(" / "))))};
+   if(due){t.due=due;t.dueLbl=dueLbl;}
+   if(!got){
+     if(!sub)t.w={track:"o1",field:"submit",value:"",lbl:"🔎 ยื่น อ.1 แล้ว"};
      else t.w={track:"o1",field:"got",value:"",lbl:"✅ ได้ อ.1 แล้ว"};
-     if(!wv)t.w2={track:"o1",field:"waiver",value:"",lbl:"🏗️ อนุโลม (ก่อสร้างก่อน)"};
+     if(sub&&!wv)t.w2={track:"o1",field:"waiver",value:"",lbl:"🏗️ อนุโลม (ก่อสร้างก่อน)"};
    }
    ratT.push(t);
- });
+ }
  var rOver=ratT.filter(function(t){return t.st=="red";}).length;
- var rPrep=ratT.filter(function(t){return A_ORD[t.step]<A_ORD[A_TRK];}).length;
- var rSub=ratT.filter(function(t){return t.step!=A_OK&&A_ORD[t.step]>=A_ORD[A_TRK];}).length;
+ var rPrep=ratT.filter(function(t){return A_PRE.indexOf(t.step)>=0;}).length;
+ var rSub=ratT.filter(function(t){return t.step===A_TRK||t.step===A_WAI;}).length;
  var oGot=ratT.filter(function(t){return t.step==A_OK;}).length;
- var oWai=ratT.filter(function(t){return t.waiver;}).length;
+ var oWai=ratT.filter(function(t){return t.step===A_WAI;}).length;
  // ================= ทะเบียน =================
  var RG_PREP="เตรียมเอกสารทะเบียนบ้าน",RG_HOME="ทะเบียนบ้าน + ภ.พ.09",RG_UTIL="น้ำ-ไฟ",RG_LIC="ใบอนุญาต (D-11~D-8)",RGF="จดทะเบียนครบ (จบ)";
  var REG_STEPS=[{ico:"📝",stp:RG_PREP,task:"รวบรวมเอกสารเริ่มต้น — งานแรกของทีมทะเบียน",sla:"เริ่มที่นี่"},
